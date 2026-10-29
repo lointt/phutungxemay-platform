@@ -4,30 +4,24 @@ Hệ thống thương mại điện tử chuyên cung cấp phụ tùng xe máy 
 
 ---
 
-## 🏛️ Kiến Trúc Hệ Thống (Architecture Overview)
+## 🏛️ Kiến Trúc Hạ Tầng Frontend (Frontend Serverless Architecture)
 
 ```
 [Khách hàng / Trình duyệt]
            │
            ▼
-[Amazon CloudFront CDN (ap-southeast-1)] ── OAC ──► [Amazon S3: Static Assets & Images]
+[Amazon CloudFront CDN (ap-southeast-1)] ── OAC ──► [Amazon S3: Static Assets (_next/static/*)]
            │ (Cache-Control: public, max-age=31536000, immutable)
-           ├──────────────────────────────► [AWS Lambda SSR: NextjsServerHandler (Node.js 22 + OpenNext)]
-           │                                 (Response Streaming Function URL)
            │
-           ├─► /api/* ────────────────────► [Amazon API Gateway REST (prod)] ──► [Microservices Lambdas]
-           │                                                                    ├── OrderService
-           │                                                                    ├── CartService
-           │                                                                    └── PaymentWebhook
-           │
-           └─► wss://... ─────────────────► [Amazon API Gateway WebSocket] ──► [Chatbot RAG Lambda]
+           └──────────────────────────────► [AWS Lambda SSR: NextjsServerHandler (Node.js 22 + OpenNext)]
+                                             (Response Streaming Function URL - Auth: NONE)
 ```
 
 ### Điểm nổi bật về công nghệ:
 - **Frontend Framework**: Next.js 16 (App Router, Server & Client Components, Streaming SSR, Tailwind CSS v4).
-- **Deployment Adapter**: `@opennextjs/aws` v4 (tách biệt hoàn toàn phần static assets lên S3 và server runtime xử lý SSR động lên AWS Lambda Streaming).
-- **Hạ tầng (IaC)**: Terraform quản lý 100% tài nguyên AWS (CloudFront, S3, Lambda, API Gateway, Cognito, DynamoDB, SQS, SNS, EventBridge).
-- **CI/CD**: GitHub Actions tự động kiểm tra Type, Build OpenNext, đồng bộ S3, cập nhật Lambda và Invalidate Cache CloudFront.
+- **Deployment Adapter**: `@opennextjs/aws` v4 (tách biệt hoàn toàn phần static assets lên S3 và server runtime xử lý SSR động lên AWS Lambda Streaming Function URL).
+- **Hạ tầng (IaC)**: Terraform quản lý độc lập 100% tài nguyên hạ tầng Frontend (S3 Bucket Hosting, Lambda SSR Function URL, CloudFront Distribution CDN, IAM Execution Role).
+- **CI/CD Tự động hóa**: GitHub Actions tự động kiểm tra Type Check TypeScript, Build OpenNext, đồng bộ S3, cập nhật mã nguồn Lambda và Invalidate Cache CloudFront.
 
 ---
 
@@ -41,27 +35,22 @@ phutungxemay-platform/
 ├── frontend/                   # Mã nguồn Next.js Frontend
 │   ├── app/                    # Next.js App Router (Customer & Admin routes)
 │   ├── components/             # Reusable UI Components
-│   ├── context/                # React Contexts (AuthContext, CartContext, etc.)
+│   ├── context/                # React Contexts (AuthContext, CartContext)
 │   ├── hooks/                  # Custom React Hooks
 │   ├── lib/                    # API clients, Cognito auth helpers, utils
 │   ├── types/                  # TypeScript Data Models & Contracts
 │   ├── open-next.config.ts     # Cấu hình OpenNext build cho AWS Lambda Streaming
 │   ├── package.json
 │   └── tsconfig.json
-├── terraform/                  # Mã nguồn Infrastructure as Code (IaC)
-│   ├── cloudfront.tf           # CloudFront Distribution, Cache Policies & OAC
-│   ├── lambda_frontend.tf      # Lambda NextjsServerHandler SSR & Function URL
-│   ├── s3.tf                   # S3 Hosting Bucket & S3 Product Images Bucket
-│   ├── cognito.tf              # Amazon Cognito User Pool & App Client
-│   ├── apigateway_rest.tf      # REST API Gateway (/api/*)
-│   ├── apigateway_ws.tf        # WebSocket API Gateway (Chatbot RAG)
-│   ├── dynamodb.tf             # DynamoDB Tables (Products, Orders, Carts, Users...)
-│   ├── sqs.tf & sns.tf         # SQS Queue, DLQ và SNS Notifications
-│   ├── variables.tf            # Khai báo biến Terraform
-│   ├── outputs.tf              # Xuất các endpoint & ID tài nguyên sau deploy
-│   └── providers.tf            # Cấu hình AWS Provider (ap-southeast-1)
-├── scripts/                    # Scripts tiện ích (seeding data, background workers)
-├── .gitignore
+├── terraform/                  # Mã nguồn Hạ tầng Frontend Độc lập (IaC)
+│   ├── cloudfront.tf           # CloudFront Distribution, Cache Policies & S3 OAC
+│   ├── lambda_frontend.tf      # Lambda NextjsServerHandler SSR, Function URL & Permissions
+│   ├── s3.tf                   # S3 Hosting Bucket (_next/static/*) & Public Access Block
+│   ├── variables.tf            # Khai báo biến Terraform cho Frontend
+│   ├── outputs.tf              # Xuất các endpoint, Bucket Name, CloudFront Domain & ID
+│   ├── providers.tf            # Cấu hình AWS Provider (ap-southeast-1)
+│   └── terraform.tfvars.example# Mẫu cấu hình tham số môi trường
+├── .gitignore                  # Bảo vệ mã nguồn, loại trừ file state, env và node_modules
 └── README.md
 ```
 
@@ -72,7 +61,7 @@ phutungxemay-platform/
 Để chạy dự án và triển khai thành công, máy tính của bạn cần cài đặt:
 1. **Node.js**: Phiên bản `20.x` hoặc `22.x LTS` (khuyên dùng Node.js 22).
 2. **Terraform**: Phiên bản `>= 1.5.0`.
-3. **AWS CLI v2**: Đã xác thực với tài khoản AWS có đủ quyền:
+3. **AWS CLI v2**: Đã xác thực với tài khoản AWS có đủ quyền triển khai:
    ```bash
    aws configure
    # Nhập AWS Access Key ID, Secret Access Key, Region: ap-southeast-1
@@ -94,7 +83,7 @@ npm install
 ```
 
 ### Bước 3: Tạo file cấu hình biến môi trường
-Tạo file `.env.local` bên trong thư mục `frontend/` với nội dung mẫu:
+Tạo file `.env.local` bên trong thư mục `frontend/` với nội dung:
 ```env
 NEXT_PUBLIC_CDN_BASE_URL=https://d1ksuy3hfmko20.cloudfront.net
 NEXT_PUBLIC_API_BASE_URL=https://d1ksuy3hfmko20.cloudfront.net/api
@@ -111,9 +100,9 @@ Mở trình duyệt truy cập: [http://localhost:3000](http://localhost:3000).
 
 ---
 
-## ☁️ 2. Hướng Dẫn Triển Khai Hạ Tầng Với Terraform
+## ☁️ 2. Hướng Dẫn Triển Khai Hạ Tầng Với Terraform (Infrastructure Deployment)
 
-Toàn bộ hạ tầng lưu trữ và vận hành frontend đã được định nghĩa bằng mã nguồn trong thư mục `terraform/`.
+Thư mục `terraform/` được thiết kế độc lập, chỉ tạo hạ tầng cho Frontend mà không phụ thuộc hoặc làm ảnh hưởng tới bất kỳ tài nguyên Backend nào.
 
 ### Bước 1: Di chuyển vào thư mục terraform
 ```bash
@@ -123,109 +112,84 @@ cd terraform
 ### Bước 2: Tạo file `terraform.tfvars`
 Sao chép từ file mẫu `terraform.tfvars.example`:
 ```bash
+# Trên Windows PowerShell:
+copy terraform.tfvars.example terraform.tfvars
+
+# Trên Linux / macOS:
 cp terraform.tfvars.example terraform.tfvars
 ```
-Điều chỉnh các thông số phù hợp (nếu cần):
+Tùy chỉnh các thông số phù hợp:
 ```hcl
-aws_region  = "ap-southeast-1"
-environment = "prod"
-project_name = "phutungxemay"
+aws_region          = "ap-southeast-1"
+environment         = "replica"
+project_name        = "phutungxemay"
+hosting_bucket_name = "phutungxemay-frontend-replica-2026"
 ```
 
-### Bước 3: Khởi tạo và áp dụng hạ tầng
+### Bước 3: Khởi tạo và Áp dụng Hạ tầng
 ```bash
-# 1. Tải các AWS providers
+# 1. Tải AWS Provider
 terraform init
 
-# 2. Xem trước kế hoạch tạo tài nguyên
+# 2. Xem trước kế hoạch tạo tài nguyên (Phải đảm bảo 0 to destroy)
 terraform plan
 
 # 3. Tạo tài nguyên lên AWS
 terraform apply -auto-approve
 ```
 
-Sau khi hoàn tất, Terraform sẽ in ra các `Outputs` quan trọng:
-- `cloudfront_domain_name`: Domain CloudFront (ví dụ: `d1ksuy3hfmko20.cloudfront.net`).
-- `s3_frontend_bucket_name`: Bucket chứa static files (`phutungxemay-frontend-hosting-2026`).
-- `lambda_nextjs_function_name`: Tên hàm SSR (`NextjsServerHandler`).
+Sau khi hoàn tất, Terraform sẽ in ra các **Outputs** quan trọng:
+- `cloudfront_domain_name`: Domain CloudFront mới (ví dụ: `d1yvm1htsd670r.cloudfront.net`).
+- `cloudfront_distribution_id`: ID phân phối (ví dụ: `E1G24NW0051BXO`).
+- `s3_hosting_bucket_name`: Tên S3 Bucket (ví dụ: `phutungxemay-frontend-replica-2026`).
+- `lambda_nextjs_function_name`: Tên Lambda SSR (ví dụ: `NextjsServerHandler-Replica`).
+- `lambda_nextjs_function_url`: Endpoint Function URL streaming của Lambda.
 
 ---
 
-## 🚀 3. Hướng Dẫn Build & Deploy Frontend Thủ Công
+## 🚀 3. Hướng Dẫn Cấu Hình CI/CD Tự Động (GitHub Actions)
 
-Nếu bạn muốn deploy trực tiếp từ máy cá nhân lên AWS thông qua AWS CLI:
+Dự án đã tích hợp sẵn workflow tự động hóa tại [`.github/workflows/frontend.yml`](.github/workflows/frontend.yml). Mỗi khi bạn đẩy code (`git push`) lên nhánh `main` tác động tới `frontend/`, GitHub Actions sẽ tự động thực hiện: Type Check $\rightarrow$ Build OpenNext $\rightarrow$ Sync S3 $\rightarrow$ Update Lambda $\rightarrow$ Invalidate CloudFront.
 
-### Bước 1: Build mã nguồn bằng OpenNext
-```bash
-cd frontend
-npm run build:open-next
-```
-Lệnh này sẽ biên dịch Next.js và sinh ra thư mục `.open-next/` gồm:
-- `.open-next/assets`: Chứa toàn bộ file tĩnh (JS bundle, CSS, media, font).
-- `.open-next/server-functions/default`: Chứa code Node.js xử lý SSR Lambda.
+### Thiết lập GitHub Secrets:
+Trên kho GitHub của bạn:
+Vào **Settings** $\rightarrow$ **Secrets and variables** $\rightarrow$ **Actions** $\rightarrow$ bấm nút xanh **New repository secret** và thêm các secrets sau:
 
-### Bước 2: Đồng bộ Static Assets lên S3
-```bash
-aws s3 sync .open-next/assets s3://phutungxemay-frontend-hosting-2026 --delete
-```
+| Tên Secret | Giá Trị Lấy Từ Đâu | Ví Dụ Mẫu |
+| :--- | :--- | :--- |
+| `AWS_ACCESS_KEY_ID` | IAM User Credentials | `AKIA2ZNUATKG...` |
+| `AWS_SECRET_ACCESS_KEY` | IAM User Credentials | `wJalrXUtnFEMI/K7MDENG/bPxRfiCY...` |
+| `AWS_REGION` | Khu vực AWS | `ap-southeast-1` |
+| `AWS_S3_FRONTEND_BUCKET` | Terraform Output `s3_hosting_bucket_name` | `phutungxemay-frontend-replica-2026` |
+| `AWS_LAMBDA_SERVER_NAME` | Terraform Output `lambda_nextjs_function_name`| `NextjsServerHandler-Replica` |
+| `CLOUDFRONT_DISTRIBUTION_ID` | Terraform Output `cloudfront_distribution_id`| `E1G24NW0051BXO` |
+| `NEXT_PUBLIC_CDN_BASE_URL` | Terraform Output `cloudfront_domain_name` | `https://d1yvm1htsd670r.cloudfront.net` |
+| `NEXT_PUBLIC_API_BASE_URL` | REST API Backend URL | `https://d1ksuy3hfmko20.cloudfront.net/api` |
+| `NEXT_PUBLIC_COGNITO_USER_POOL_ID`| Cognito User Pool ID | `ap-southeast-1_ecJz9V8QY` |
+| `NEXT_PUBLIC_COGNITO_CLIENT_ID`| Cognito Client ID | `7rbclbi7o4vun1dpe6k2glmel7` |
+| `NEXT_PUBLIC_WEBSOCKET_URL` | WebSocket URL cho Chatbot RAG | `wss://9trjqwwev1.execute-api.ap-southeast-1.amazonaws.com/production` |
 
-### Bước 3: Đóng gói và cập nhật Lambda SSR
-**Trên Windows (PowerShell):**
-```powershell
-Compress-Archive -Path .open-next\server-functions\default\* -DestinationPath function.zip -Force
-aws lambda update-function-code --function-name NextjsServerHandler --zip-file fileb://function.zip
-Remove-Item function.zip
-```
-
-**Trên Linux / macOS (Bash):**
-```bash
-cd .open-next/server-functions/default
-zip -rq ../../../function.zip .
-cd ../../..
-aws lambda update-function-code --function-name NextjsServerHandler --zip-file fileb://function.zip
-rm function.zip
-```
-
-### Bước 4: Xóa Cache CloudFront (Invalidation)
-```bash
-aws cloudfront create-invalidation --distribution-id E2E4BVXCBW1IXC --paths "/*"
-```
-Trang web sẽ lập tức cập nhật phiên bản mới nhất trên toàn cầu!
+### Kích hoạt Pipeline:
+1. Vào tab **Actions** trên GitHub.
+2. Chọn workflow **Frontend CI/CD Pipeline** $\rightarrow$ nhấn **Run workflow** (hoặc chỉ cần thực hiện `git push` một thay đổi code).
+3. Sau khoảng 1 phút, pipeline hoàn thành với dấu tích xanh $\checkmark$.
+4. Mở trình duyệt truy cập domain CloudFront của bạn: Website sẽ hiển thị mượt mà với SSR streaming và static assets từ S3!
 
 ---
 
-## 🔄 4. Hướng Dẫn Thiết Lập Tự Động Hóa CI/CD (GitHub Actions)
+## 📌 Các Lưu Ý Quan Trọng Khi Triển Khai (Troubleshooting Guide)
 
-Dự án đã tích hợp sẵn workflow tự động hóa tại [`.github/workflows/frontend.yml`](.github/workflows/frontend.yml). Mỗi khi bạn đẩy code (`git push`) lên nhánh `main` có thay đổi trong thư mục `frontend/`, GitHub Actions sẽ tự động thực hiện quy trình Build $\rightarrow$ S3 $\rightarrow$ Lambda $\rightarrow$ Invalidate CloudFront.
-
-### Cấu hình GitHub Secrets:
-Truy cập kho mã nguồn trên GitHub:
-`Settings` $\rightarrow$ `Secrets and variables` $\rightarrow$ `Actions` $\rightarrow$ `New repository secret` và thêm các secrets sau:
-
-| Tên Secret | Ý Nghĩa / Giá Trị Mẫu |
-| :--- | :--- |
-| `AWS_ACCESS_KEY_ID` | AWS IAM Access Key có quyền S3, Lambda, CloudFront |
-| `AWS_SECRET_ACCESS_KEY` | AWS IAM Secret Access Key tương ứng |
-| `AWS_REGION` | `ap-southeast-1` |
-| `AWS_S3_FRONTEND_BUCKET` | `phutungxemay-frontend-hosting-2026` |
-| `AWS_LAMBDA_SERVER_NAME` | `NextjsServerHandler` |
-| `CLOUDFRONT_DISTRIBUTION_ID` | `E2E4BVXCBW1IXC` |
-| `NEXT_PUBLIC_CDN_BASE_URL` | `https://d1ksuy3hfmko20.cloudfront.net` |
-| `NEXT_PUBLIC_API_BASE_URL` | `https://d1ksuy3hfmko20.cloudfront.net/api` |
-| `NEXT_PUBLIC_COGNITO_USER_POOL_ID` | `ap-southeast-1_ecJz9V8QY` |
-| `NEXT_PUBLIC_COGNITO_CLIENT_ID` | `7rbclbi7o4vun1dpe6k2glmel7` |
-| `NEXT_PUBLIC_WEBSOCKET_URL` | `wss://9trjqwwev1.execute-api.ap-southeast-1.amazonaws.com/production` |
-
----
-
-## 🛡️ Tích Hợp Dịch Vụ Thứ 3 (3rd-Party Integrations)
-
-- **Cổng thanh toán VNPAY**: Sandbox HMAC-SHA512 verification, tự động điều hướng sang trang kết quả đơn hàng.
-- **Đơn vị vận chuyển Giao Hàng Nhanh (GHN)**: Tích hợp API v2 tính phí vận chuyển và tự động sinh mã vận đơn thật (Tracking Code) thông qua cơ chế chuẩn hóa địa chỉ thông minh (Fuzzy Regex Match) ở backend `ShippingWorker`. Miễn phí vận chuyển cho đơn hàng $\ge 500.000$ VNĐ.
-- **Hệ thống Email Thông Báo**: Tích hợp Gmail SMTP và AWS SES thông báo trạng thái đơn hàng tức thời.
-- **Dead Letter Queue (DLQ)**: Cơ chế bắt lỗi và phục hồi tin nhắn đơn hàng qua Amazon SQS DLQ.
+1. **Tránh lỗi 403 Forbidden của Lambda Function URL:**
+   - AWS Lambda yêu cầu 2 quyền độc lập khi mở Function URL dạng public (`NONE`):
+     - `lambda:InvokeFunctionUrl`: Quyền gọi vào URL.
+     - `lambda:InvokeFunction` (với `--invoked-via-function-url`): Quyền cho phép Lambda thực thi code khi được kích hoạt qua URL.
+   - File `terraform/lambda_frontend.tf` trong dự án đã cấu hình đầy đủ cả 2 resource permission này để tự động cấp phép khi chạy `terraform apply`.
+2. **Tránh lỗi Git Submodule:**
+   - Khi khởi tạo Next.js, nếu trong thư mục `frontend/` vô tình có thư mục ẩn `.git`, hãy xóa nó trước khi add vào monorepo bên ngoài để tránh bị nhận nhầm thành submodule rỗng.
+3. **TypeScript Type Safety:**
+   - Luôn sử dụng kiểu dữ liệu React chuẩn mực (`{ children: React.ReactNode }`) cho `RootLayout` trong `frontend/app/layout.tsx` để vượt qua quy trình Type Check tự động của CI/CD.
 
 ---
 
 ## 📄 License
-Dự án được bảo lưu mọi quyền bởi đội ngũ phát triển **Phụ Tùng Xe Máy Platform**.
+Dự án được phát triển và bảo lưu mọi quyền bởi đội ngũ **Phụ Tùng Xe Máy Platform**.

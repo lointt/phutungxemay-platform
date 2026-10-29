@@ -82,10 +82,19 @@ resource "aws_lambda_function_url" "nextjs_url" {
   invoke_mode        = "RESPONSE_STREAM"
 }
 
-# 6. Cấp quyền truy cập công khai cho Function URL
+# 6. Cấp quyền truy cập công khai cho Function URL (gọi URL)
 resource "aws_lambda_permission" "allow_public_function_url" {
   statement_id           = "FunctionURLAllowPublicAccess"
   action                 = "lambda:InvokeFunctionUrl"
+  function_name          = aws_lambda_function.nextjs_server.function_name
+  principal              = "*"
+  function_url_auth_type = "NONE"
+}
+
+# 7. Cấp quyền thực thi mã nguồn Lambda khi được gọi qua Function URL (Tránh lỗi 403 Forbidden)
+resource "aws_lambda_permission" "allow_invoke_via_function_url" {
+  statement_id           = "FunctionURLAllowInvokeAction"
+  action                 = "lambda:InvokeFunction"
   function_name          = aws_lambda_function.nextjs_server.function_name
   principal              = "*"
   function_url_auth_type = "NONE"
