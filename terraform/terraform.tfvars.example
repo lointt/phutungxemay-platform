@@ -1,0 +1,4 @@
+aws_region          = "ap-southeast-1"
+environment         = "prod"
+project_name        = "phutungxemay"
+hosting_bucket_name = "phutungxemay-frontend-hosting-2026"

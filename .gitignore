@@ -1,0 +1,54 @@
+# Dependencies
+node_modules/
+**/node_modules/
+.pnpm-store/
+
+# Next.js & OpenNext build outputs
+.next/
+**/.next/
+.open-next/
+**/.open-next/
+out/
+**/out/
+build/
+dist/
+*.zip
+**/*.zip
+
+# Environment & Local secrets
+.env
+.env.local
+.env.*.local
+**/.env
+**/.env.local
+**/.env.*.local
+.admin_token_cache.json
+**/.admin_token_cache.json
+*.pem
+*.key
+
+# Terraform local state, backups and plugins
+.terraform/
+**/.terraform/
+.terraform.lock.hcl
+**/.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+*.tfvars
+!terraform.tfvars.example
+!**/terraform.tfvars.example
+terraform_backend_backup/
+**/terraform_backend_backup/
+
+# Logs & OS artifacts
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.DS_Store
+Thumbs.db
+
+# IDE & Editor
+.vscode/
+.idea/
+*.tsbuildinfo
+**/*.tsbuildinfo
