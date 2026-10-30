@@ -17,6 +17,11 @@ output "s3_hosting_bucket_name" {
   value       = aws_s3_bucket.frontend_hosting.id
 }
 
+output "s3_product_images_bucket_name" {
+  description = "Tên S3 Bucket lưu trữ hình ảnh sản phẩm (/images/*)"
+  value       = aws_s3_bucket.product_images.id
+}
+
 output "lambda_nextjs_function_name" {
   description = "Tên của Lambda Next.js SSR"
   value       = aws_lambda_function.nextjs_server.function_name

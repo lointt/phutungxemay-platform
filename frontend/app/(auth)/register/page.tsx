@@ -30,6 +30,7 @@ export default function RegisterPage() {
     confirmPassword: '',
   });
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<keyof FormData, string>>>({});
@@ -53,8 +54,9 @@ export default function RegisterPage() {
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
       errors.email = 'Email không đúng định dạng.';
     }
-    if (form.phone && !/^(0|\+84)[0-9]{9}$/.test(form.phone.replace(/\s/g, ''))) {
-      errors.phone = 'Số điện thoại không hợp lệ (10 chữ số, bắt đầu bằng 0).';
+    const cleanPhone = form.phone.replace(/[\s.-]/g, '');
+    if (cleanPhone && !/^0[0-9]{9}$/.test(cleanPhone)) {
+      errors.phone = 'Số điện thoại phải gồm 10 chữ số và bắt đầu bằng số 0 (VD: 0901234567).';
     }
     if (!form.password) {
       errors.password = 'Vui lòng nhập mật khẩu.';
@@ -82,7 +84,7 @@ export default function RegisterPage() {
         email: form.email,
         password: form.password,
         name: form.name,
-        phone: form.phone || undefined,
+        phone: form.phone.trim() || undefined,
       });
       // Chuyển sang trang xác thực OTP, truyền email qua query
       router.push(`/confirm?email=${encodeURIComponent(form.email)}`);
@@ -97,7 +99,7 @@ export default function RegisterPage() {
     <>
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-white">Tạo tài khoản</h1>
-        <p className="text-slate-300 text-sm mt-1">Đăng ký để mua sắm và nhận tư vấn từ Kỹ Sư AI.</p>
+        <p className="text-slate-300 text-sm mt-1">Đăng ký để mua sắm và nhận tư vấn phụ tùng 24/7.</p>
       </div>
 
       {error && (
@@ -170,7 +172,7 @@ export default function RegisterPage() {
             <button
               type="button"
               onClick={() => setShowPassword((v) => !v)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 transition-colors"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 transition-colors cursor-pointer"
               aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
             >
               {showPassword ? <EyeOffIcon className="w-4 h-4" /> : <EyeIcon className="w-4 h-4" />}
@@ -181,18 +183,41 @@ export default function RegisterPage() {
           )}
         </div>
 
-        {/* Xác nhận mật khẩu */}
-        <Field
-          id="confirmPassword"
-          label="Xác nhận mật khẩu"
-          required
-          type="password"
-          autoComplete="new-password"
-          placeholder="Nhập lại mật khẩu"
-          value={form.confirmPassword}
-          onChange={handleChange('confirmPassword')}
-          error={fieldErrors.confirmPassword}
-        />
+        {/* Xác nhận mật khẩu (có icon mắt ẩn/hiện) */}
+        <div>
+          <label htmlFor="confirmPassword" className="block text-sm font-medium text-slate-200 mb-1.5">
+            Xác nhận mật khẩu <span className="text-red-400">*</span>
+          </label>
+          <div className="relative">
+            <input
+              id="confirmPassword"
+              type={showConfirmPassword ? 'text' : 'password'}
+              autoComplete="new-password"
+              required
+              placeholder="Nhập lại mật khẩu"
+              value={form.confirmPassword}
+              onChange={handleChange('confirmPassword')}
+              className={cn(
+                'w-full px-4 py-2.5 pr-11 rounded-xl text-white placeholder-slate-400 text-sm',
+                'bg-white/10 border focus:outline-none focus:ring-2 transition-colors',
+                fieldErrors.confirmPassword
+                  ? 'border-red-400/60 focus:border-red-400 focus:ring-red-400/30'
+                  : 'border-white/20 focus:border-orange-400 focus:ring-orange-400/30',
+              )}
+            />
+            <button
+              type="button"
+              onClick={() => setShowConfirmPassword((v) => !v)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 transition-colors cursor-pointer"
+              aria-label={showConfirmPassword ? 'Ẩn mật khẩu xác nhận' : 'Hiện mật khẩu xác nhận'}
+            >
+              {showConfirmPassword ? <EyeOffIcon className="w-4 h-4" /> : <EyeIcon className="w-4 h-4" />}
+            </button>
+          </div>
+          {fieldErrors.confirmPassword && (
+            <p className="mt-1 text-xs text-red-300">{fieldErrors.confirmPassword}</p>
+          )}
+        </div>
 
         {/* Submit */}
         <button

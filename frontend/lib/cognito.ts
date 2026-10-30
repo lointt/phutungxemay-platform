@@ -42,6 +42,27 @@ export interface SignUpParams {
   phone?: string;
 }
 
+// ─── Phone Format Helpers (0xxx <-> +84xxx cho AWS Cognito) ───────────────────
+
+function formatPhoneToE164(phone: string): string {
+  const cleaned = phone.replace(/[\s.-]/g, '');
+  if (cleaned.startsWith('0')) {
+    return `+84${cleaned.slice(1)}`;
+  }
+  if (cleaned.startsWith('84') && cleaned.length === 11) {
+    return `+${cleaned}`;
+  }
+  return cleaned;
+}
+
+function formatPhoneToLocal(phone?: string): string | undefined {
+  if (!phone) return undefined;
+  if (phone.startsWith('+84')) {
+    return `0${phone.slice(3)}`;
+  }
+  return phone;
+}
+
 // ─── Helper: Decode JWT claims (không cần thư viện ngoài) ────────────────────
 
 function decodeJwtClaims(token: string): Record<string, unknown> {
@@ -72,7 +93,7 @@ function extractTokenInfo(session: CognitoUserSession): CognitoTokens {
     email: (claims['email'] as string) ?? '',
     name: (claims['name'] as string) ?? '',
     groups: (claims['cognito:groups'] as string[]) ?? [],
-    phone: claims['phone_number'] as string | undefined,
+    phone: formatPhoneToLocal(claims['phone_number'] as string | undefined),
   };
 }
 
@@ -119,8 +140,13 @@ export async function signUp({ email, password, name, phone }: SignUpParams): Pr
       new CognitoUserAttribute({ Name: 'name', Value: name }),
     ];
 
-    if (phone) {
-      attributes.push(new CognitoUserAttribute({ Name: 'phone_number', Value: phone }));
+    if (phone && phone.trim()) {
+      attributes.push(
+        new CognitoUserAttribute({
+          Name: 'phone_number',
+          Value: formatPhoneToE164(phone.trim()),
+        }),
+      );
     }
 
     userPool.signUp(email, password, attributes, [], (err) => {
@@ -174,6 +200,55 @@ export async function resendConfirmationCode(email: string): Promise<void> {
 }
 
 /**
+ * Yêu cầu gửi mã OTP đặt lại mật khẩu về email (Quên mật khẩu - Bước 1).
+ */
+export async function forgotPassword(email: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const cognitoUser = new CognitoUser({
+      Username: email.trim(),
+      Pool: userPool,
+    });
+
+    cognitoUser.forgotPassword({
+      onSuccess: () => {
+        resolve();
+      },
+      onFailure: (err: Error) => {
+        reject(new Error(mapCognitoError(err.message)));
+      },
+      inputVerificationCode: () => {
+        resolve();
+      },
+    });
+  });
+}
+
+/**
+ * Xác nhận mã OTP và đặt lại mật khẩu mới (Quên mật khẩu - Bước 2).
+ */
+export async function confirmForgotPassword(
+  email: string,
+  verificationCode: string,
+  newPassword: string,
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const cognitoUser = new CognitoUser({
+      Username: email.trim(),
+      Pool: userPool,
+    });
+
+    cognitoUser.confirmPassword(verificationCode.trim(), newPassword, {
+      onSuccess: () => {
+        resolve();
+      },
+      onFailure: (err: Error) => {
+        reject(new Error(mapCognitoError(err.message)));
+      },
+    });
+  });
+}
+
+/**
  * Đăng xuất khỏi tất cả thiết bị (globalSignOut) hoặc thiết bị hiện tại.
  */
 export async function signOut(): Promise<void> {
@@ -212,7 +287,10 @@ export async function getCurrentSession(): Promise<CognitoTokens | null> {
 // ─── Error Message Mapper ─────────────────────────────────────────────────────
 
 function mapCognitoError(message: string): string {
-  if (message.includes('UserNotFoundException') || message.includes('Incorrect username or password')) {
+  if (message.includes('UserNotFoundException')) {
+    return 'Không tìm thấy tài khoản với email này.';
+  }
+  if (message.includes('Incorrect username or password')) {
     return 'Email hoặc mật khẩu không đúng. Vui lòng thử lại.';
   }
   if (message.includes('NotAuthorizedException')) {
@@ -233,7 +311,10 @@ function mapCognitoError(message: string): string {
   if (message.includes('InvalidPasswordException') || message.includes('Password did not conform')) {
     return 'Mật khẩu phải có ít nhất 8 ký tự, bao gồm chữ hoa, chữ thường và số.';
   }
-  if (message.includes('LimitExceededException')) {
+  if (message.includes('Invalid phone number')) {
+    return 'Số điện thoại không hợp lệ. Vui lòng nhập 10 chữ số bắt đầu bằng số 0 (ví dụ: 0901234567).';
+  }
+  if (message.includes('LimitExceededException') || message.includes('Attempt limit exceeded')) {
     return 'Bạn đã thử quá nhiều lần. Vui lòng đợi một lúc trước khi thử lại.';
   }
   if (message.includes('NetworkError') || message.includes('Failed to fetch')) {

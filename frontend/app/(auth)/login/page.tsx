@@ -44,6 +44,7 @@ function LoginContent() {
   // Lấy redirect path nếu có (ví dụ: user bị redirect từ /account)
   const redirectPath = searchParams.get('redirect') ?? '/';
   const authError = searchParams.get('error');
+  const resetSuccess = searchParams.get('reset') === '1';
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -67,6 +68,13 @@ function LoginContent() {
         <h1 className="text-2xl font-bold text-white">Đăng nhập</h1>
         <p className="text-slate-300 text-sm mt-1">Chào mừng trở lại! Nhập thông tin để tiếp tục.</p>
       </div>
+
+      {/* Thông báo khi đặt lại mật khẩu thành công */}
+      {resetSuccess && (
+        <div className="mb-4 p-3 bg-green-500/20 border border-green-400/30 rounded-lg">
+          <p className="text-green-200 text-sm">✅ Đặt lại mật khẩu thành công! Vui lòng đăng nhập với mật khẩu mới.</p>
+        </div>
+      )}
 
       {/* Cảnh báo khi bị chặn từ middleware */}
       {authError === 'auth_required' && (
@@ -111,7 +119,10 @@ function LoginContent() {
             <label htmlFor="password" className="block text-sm font-medium text-slate-200">
               Mật khẩu
             </label>
-            <Link href="/forgot-password" className="text-xs text-orange-300 hover:text-orange-200 transition-colors">
+            <Link
+              href={email.trim() ? `/forgot-password?email=${encodeURIComponent(email.trim())}` : '/forgot-password'}
+              className="text-xs text-orange-300 hover:text-orange-200 transition-colors"
+            >
               Quên mật khẩu?
             </Link>
           </div>
@@ -134,7 +145,7 @@ function LoginContent() {
             <button
               type="button"
               onClick={() => setShowPassword((v) => !v)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 transition-colors"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 transition-colors cursor-pointer"
               aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
             >
               {showPassword ? (

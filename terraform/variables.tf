@@ -21,3 +21,9 @@ variable "hosting_bucket_name" {
   type        = string
   default     = "phutungxemay-frontend-replica-2026"
 }
+
+variable "product_images_bucket_name" {
+  description = "Tên S3 Bucket lưu trữ hình ảnh sản phẩm phụ tùng (/images/*)"
+  type        = string
+  default     = "phutungxemay-product-images-replica-2026"
+}

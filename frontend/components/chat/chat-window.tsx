@@ -36,11 +36,6 @@ export function ChatWindow({ onClose, isStandalone = false, initialPrompt }: Cha
     scrollToBottom();
   }, [messages, isThinking]);
 
-  // Focus ô nhập khi mở
-  useEffect(() => {
-    inputRef.current?.focus();
-  }, []);
-
   // Tự động gửi câu hỏi khởi động nếu có
   useEffect(() => {
     if (initialPrompt && initialPrompt.trim() && promptSentRef.current !== initialPrompt) {
@@ -54,7 +49,7 @@ export function ChatWindow({ onClose, isStandalone = false, initialPrompt }: Cha
 
   function handleSend(e?: React.FormEvent) {
     if (e) e.preventDefault();
-    if (!inputVal.trim()) return;
+    if (!inputVal.trim() || isThinking) return;
 
     sendMessage(inputVal);
     setInputVal('');
@@ -71,49 +66,58 @@ export function ChatWindow({ onClose, isStandalone = false, initialPrompt }: Cha
   return (
     <div
       className={cn(
-        'flex flex-col bg-slate-50 overflow-hidden transition-all',
+        'flex flex-col bg-slate-50/95 overflow-hidden transition-all',
         isStandalone
-          ? 'w-full h-full rounded-2xl border border-gray-200 shadow-sm'
-          : 'w-[calc(100vw-32px)] max-w-[420px] h-[560px] max-h-[82vh] rounded-3xl border border-gray-200 fixed bottom-20 right-4 sm:right-6 z-50 shadow-2xl animate-in fade-in slide-in-from-bottom-5 duration-200',
+          ? 'w-full h-full rounded-2xl border border-slate-200 shadow-sm'
+          : 'fixed inset-x-3 bottom-3 top-[68px] sm:inset-auto sm:bottom-6 sm:right-6 sm:w-[410px] sm:h-[600px] sm:max-h-[calc(100dvh-48px)] rounded-2xl sm:rounded-3xl border border-slate-200/90 z-[60] shadow-[0_20px_50px_rgba(15,23,42,0.22)] animate-in fade-in slide-in-from-bottom-5 duration-200',
       )}
     >
       {/* ── Chat Header ─────────────────────────────────────────────────────── */}
-      <div className="bg-gradient-to-r from-orange-600 via-orange-500 to-amber-500 text-white p-3.5 sm:p-4 flex items-center justify-between shadow-sm flex-shrink-0">
-        <div className="flex items-center gap-2.5">
-          <div className="relative">
-            <div className="w-9 h-9 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center text-lg font-bold shadow-inner">
-              🤖
-            </div>
+      <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white px-4 py-3.5 flex items-center justify-between border-b border-slate-700/80 flex-shrink-0">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="relative flex-shrink-0">
+            <img
+              src="/chatbot-avatar.png"
+              alt="Chuyên viên tư vấn AI"
+              className="w-10 h-10 rounded-full object-cover ring-2 ring-orange-500/80 shadow-md"
+            />
             {/* Status dot */}
             <span
               className={cn(
-                'absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-orange-600 transition-colors duration-300',
+                'absolute bottom-0 right-0 w-3 h-3 rounded-full ring-2 ring-slate-900 transition-colors duration-300',
                 isOnline
-                  ? 'bg-green-400'
+                  ? 'bg-emerald-400'
                   : isConnecting || isReconnecting
-                  ? 'bg-amber-300'
-                  : 'bg-emerald-300',
+                  ? 'bg-amber-400'
+                  : 'bg-emerald-400',
               )}
             />
           </div>
 
-          <div>
-            <h3 className="font-bold text-sm leading-tight">Kỹ Sư AI Phụ Tùng</h3>
-            <div className="flex items-center gap-1.5 text-[10px] text-orange-100">
-              <span>
-                {isOnline
-                  ? 'Trực tuyến 24/7'
-                  : isConnecting
-                  ? 'Đang kết nối...'
-                  : isReconnecting
-                  ? 'Đang đồng bộ...'
-                  : 'Sẵn sàng chẩn đoán'}
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <h3 className="font-bold text-sm text-white leading-tight truncate">
+                Trợ Lý Tư Vấn Phụ Tùng
+              </h3>
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-orange-500/20 text-orange-300 border border-orange-500/30">
+                AI 24/7
               </span>
-              {!isOnline && (
+            </div>
+            <div className="flex items-center gap-1.5 text-[11px] text-slate-300 mt-0.5">
+              <span className="truncate">
+                {isOnline
+                  ? 'Đang hoạt động • Tư vấn kỹ thuật'
+                  : isConnecting
+                  ? 'Đang kết nối máy chủ...'
+                  : isReconnecting
+                  ? 'Đang đồng bộ kết nối...'
+                  : 'Sẵn sàng hỗ trợ trực tuyến'}
+              </span>
+              {!isOnline && !isConnecting && (
                 <button
                   type="button"
                   onClick={reconnect}
-                  className="underline hover:text-white font-bold ml-1 cursor-pointer"
+                  className="text-orange-400 hover:text-orange-300 underline font-semibold ml-1 cursor-pointer flex-shrink-0"
                 >
                   Kết nối lại
                 </button>
@@ -123,15 +127,15 @@ export function ChatWindow({ onClose, isStandalone = false, initialPrompt }: Cha
         </div>
 
         {/* Header Actions */}
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 flex-shrink-0">
           <button
             type="button"
             onClick={clearChat}
-            className="p-1.5 hover:bg-white/20 rounded-lg transition-colors text-white/80 hover:text-white cursor-pointer"
+            className="p-2 hover:bg-white/10 rounded-xl transition-colors text-slate-300 hover:text-white cursor-pointer"
             title="Làm mới hội thoại"
           >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
           </button>
 
@@ -139,11 +143,11 @@ export function ChatWindow({ onClose, isStandalone = false, initialPrompt }: Cha
             <button
               type="button"
               onClick={onClose}
-              className="p-1.5 hover:bg-white/20 rounded-lg transition-colors text-white/80 hover:text-white ml-0.5 cursor-pointer"
+              className="p-2 hover:bg-white/10 rounded-xl transition-colors text-slate-300 hover:text-white cursor-pointer"
               title="Đóng cửa sổ chat"
             >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
           )}
@@ -151,18 +155,29 @@ export function ChatWindow({ onClose, isStandalone = false, initialPrompt }: Cha
       </div>
 
       {/* ── Messages List ───────────────────────────────────────────────────── */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-2">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden px-3.5 sm:px-4 py-3 space-y-1">
         {messages.map((msg) => (
           <ChatMessage key={msg.id} message={msg} />
         ))}
 
         {/* AI Typing Indicator */}
         {isThinking && (
-          <div className="flex gap-2 items-center text-xs text-orange-600 bg-orange-50/80 p-3 rounded-2xl w-fit border border-orange-100 animate-pulse my-2">
-            <div className="w-2 h-2 rounded-full bg-orange-500 animate-ping" />
-            <span className="font-semibold text-[11px]">
-              Kỹ Sư AI đang chẩn đoán và tra cứu phụ tùng...
-            </span>
+          <div className="flex items-center gap-2.5 my-2 animate-in fade-in duration-200">
+            <img
+              src="/chatbot-avatar.png"
+              alt="Chuyên viên tư vấn"
+              className="w-7 h-7 rounded-full object-cover border border-slate-200 flex-shrink-0"
+            />
+            <div className="flex items-center gap-2 text-xs text-slate-600 bg-white px-3.5 py-2.5 rounded-2xl rounded-tl-sm border border-slate-200/80 shadow-sm">
+              <div className="flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-bounce [animation-delay:-0.3s]" />
+                <span className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-bounce [animation-delay:-0.15s]" />
+                <span className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-bounce" />
+              </div>
+              <span className="font-medium text-[11px] text-slate-500">
+                Đang tra cứu thông số kỹ thuật...
+              </span>
+            </div>
           </div>
         )}
 
@@ -170,31 +185,41 @@ export function ChatWindow({ onClose, isStandalone = false, initialPrompt }: Cha
       </div>
 
       {/* ── Quick Prompts ───────────────────────────────────────────────────── */}
-      <div className="bg-white/90 border-t border-gray-100 px-3 py-1 flex-shrink-0">
+      <div className="bg-white border-t border-slate-100 px-3 py-1.5 flex-shrink-0">
         <QuickPrompts onSelectPrompt={handleSelectPrompt} disabled={isThinking} />
       </div>
 
       {/* ── Input Box Form ──────────────────────────────────────────────────── */}
-      <form onSubmit={handleSend} className="p-3 bg-white border-t border-gray-200 flex items-center gap-2 flex-shrink-0">
-        <input
-          ref={inputRef}
-          type="text"
-          placeholder="Mô tả triệu chứng xe hoặc hỏi phụ tùng..."
-          value={inputVal}
-          onChange={(e) => setInputVal(e.target.value)}
-          className="flex-1 px-3.5 py-2.5 bg-gray-100/80 border border-transparent rounded-xl text-xs text-gray-800 placeholder-gray-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-orange-300 transition-all"
-        />
+      <form
+        onSubmit={handleSend}
+        className="px-3 pb-3 pt-2 bg-white border-t border-slate-100 flex-shrink-0"
+      >
+        <div className="flex items-center gap-2 bg-slate-50 border border-slate-200/90 focus-within:border-orange-500 focus-within:bg-white focus-within:ring-3 focus-within:ring-orange-500/10 rounded-2xl pl-3.5 pr-1.5 py-1.5 transition-all">
+          <input
+            ref={inputRef}
+            type="text"
+            placeholder="Nhập triệu chứng xe, tên phụ tùng hoặc mã đơn..."
+            value={inputVal}
+            onChange={(e) => setInputVal(e.target.value)}
+            className="flex-1 min-w-0 bg-transparent text-base sm:text-xs text-slate-800 placeholder-slate-400 focus:outline-none py-1"
+          />
 
-        <button
-          type="submit"
-          disabled={!inputVal.trim() || isThinking}
-          className="p-2.5 bg-orange-500 hover:bg-orange-400 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-xl transition-all shadow-md shadow-orange-500/20 flex-shrink-0 cursor-pointer"
-          aria-label="Gửi tin nhắn"
-        >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-          </svg>
-        </button>
+          <button
+            type="submit"
+            disabled={!inputVal.trim() || isThinking}
+            className={cn(
+              'w-8 h-8 rounded-xl flex items-center justify-center transition-all flex-shrink-0 cursor-pointer',
+              inputVal.trim() && !isThinking
+                ? 'bg-orange-500 hover:bg-orange-600 text-white shadow-sm shadow-orange-500/25'
+                : 'bg-slate-200/70 text-slate-400 cursor-not-allowed',
+            )}
+            aria-label="Gửi tin nhắn"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14M12 5l7 7-7 7" />
+            </svg>
+          </button>
+        </div>
       </form>
     </div>
   );

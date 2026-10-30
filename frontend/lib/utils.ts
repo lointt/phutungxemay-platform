@@ -85,11 +85,11 @@ export function getImageUrl(imagePath: string): string {
  */
 export function getCategoryLabel(category: string): string {
   const labels: Record<string, string> = {
-    transmission: 'Hệ thống truyền động',
-    brake: 'Phanh',
+    transmission: 'Truyền động',
+    brake: 'Hệ thống phanh',
     engine: 'Động cơ',
     electrical: 'Điện - Đèn',
-    suspension: 'Giảm xóc - Khung sườn',
+    suspension: 'Giảm xóc',
     body: 'Nhựa - Tem - Yên xe',
     oil_filter: 'Nhớt - Lọc',
     other: 'Khác',

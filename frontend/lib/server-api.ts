@@ -3,7 +3,18 @@
 // Chuẩn hóa dữ liệu từ backend DynamoDB & hỗ trợ lọc linh hoạt
 // ============================================================
 
+import dns from 'node:dns';
+import net from 'node:net';
+
+dns.setDefaultResultOrder('ipv4first');
+if (typeof net.setDefaultAutoSelectFamily === 'function') {
+  net.setDefaultAutoSelectFamily(false);
+}
+
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'https://d1ksuy3hfmko20.cloudfront.net';
+
+// Bộ nhớ đệm dự phòng trên Server để chống rớt mạng tạm thời
+let cachedAllProducts: Product[] | null = null;
 
 import type { Product, ProductListResponse, ProductFilter, CompatibleVehicle } from '@/types/product';
 import type { Order } from '@/types/order';
@@ -11,17 +22,69 @@ import type { Order } from '@/types/order';
 // ─── Category Mapping Helper ──────────────────────────────────────────────────
 export const CATEGORY_MAP: Record<string, string> = {
   brake: 'Hệ thống phanh',
-  transmission: 'Hệ thống truyền động',
-  oil_filter: 'Dầu nhớt & Phụ gia',
-  suspension: 'Giảm xóc sau',
-  fork: 'Hệ thống giảm xóc & Lái',
+  transmission: 'Truyền động',
+  oil_filter: 'Nhớt - Lọc',
+  suspension: 'Giảm xóc',
+  fork: 'Giảm xóc',
   engine: 'Động cơ',
   electrical: 'Điện - Đèn',
   body: 'Nhựa - Tem - Yên xe',
   other: 'Khác',
 };
 
+const CATEGORY_ALIASES: Record<string, string[]> = {
+  'truyền động': ['truyền động', 'hệ thống truyền động'],
+  'động cơ': ['động cơ'],
+  'giảm xóc': ['giảm xóc', 'giảm xóc sau', 'hệ thống giảm xóc & lái', 'phuộc'],
+  'hệ thống phanh': ['hệ thống phanh', 'phanh', 'thắng'],
+  'điện - đèn': ['điện - đèn', 'điện', 'đèn'],
+  'nhớt - lọc': ['nhớt - lọc', 'dầu nhớt & phụ gia', 'nhớt', 'lọc'],
+  'lốp - vỏ xe': ['lốp - vỏ xe', 'lốp', 'vỏ xe'],
+  'phụ kiện - pô xe': ['phụ kiện - pô xe', 'phụ kiện', 'pô xe', 'dàn áo'],
+};
+
 // ─── Normalizer ───────────────────────────────────────────────────────────────
+
+function inferVehicleBrand(modelStr: string): { brand: string; model: string } {
+  const m = modelStr.trim();
+  const lower = m.toLowerCase();
+  if (lower.startsWith('yamaha ') || lower.startsWith('honda ') || lower.startsWith('suzuki ') || lower.startsWith('sym ')) {
+    const parts = m.split(' ');
+    return { brand: parts[0], model: parts.slice(1).join(' ') };
+  }
+  if (
+    lower.includes('exciter') ||
+    lower.includes('sirius') ||
+    lower.includes('jupiter') ||
+    lower.includes('nvx') ||
+    lower.includes('grande') ||
+    lower.includes('fz150') ||
+    lower.includes('r15') ||
+    lower.includes('mt-15')
+  ) {
+    return { brand: 'Yamaha', model: m };
+  }
+  if (
+    lower.includes('winner') ||
+    lower.includes('wave') ||
+    lower.includes('future') ||
+    lower.includes('air blade') ||
+    lower.includes('vario') ||
+    lower.includes('vision') ||
+    lower.includes('sh') ||
+    lower.includes('lead') ||
+    lower.includes('sonic') ||
+    lower.includes('pcx') ||
+    lower.includes('cb150') ||
+    lower.includes('adv')
+  ) {
+    return { brand: 'Honda', model: m };
+  }
+  if (lower.includes('raider') || lower.includes('satria') || lower.includes('gsx') || lower.includes('address')) {
+    return { brand: 'Suzuki', model: m };
+  }
+  return { brand: 'Honda', model: m };
+}
 
 export function normalizeProduct(raw: Record<string, unknown>): Product {
   const productId = String(raw.ProductID ?? raw.product_id ?? raw.id ?? '');
@@ -38,10 +101,8 @@ export function normalizeProduct(raw: Record<string, unknown>): Product {
   const compatibleVehicles: CompatibleVehicle[] = Array.isArray(raw.compatible_vehicles)
     ? (raw.compatible_vehicles as CompatibleVehicle[])
     : rawModels.map((m) => {
-        const parts = m.split(' ');
-        const brand = parts[0] ?? '';
-        const model = parts.slice(1).join(' ');
-        return { brand, model, year_from: 2015, year_to: 2024 };
+        const { brand, model } = inferVehicleBrand(m);
+        return { brand, model, year_from: 2015, year_to: 2026 };
       });
 
   return {
@@ -73,30 +134,43 @@ export function normalizeProduct(raw: Record<string, unknown>): Product {
  */
 export async function getProducts(filter?: ProductFilter): Promise<ProductListResponse> {
   try {
-    // 1. Gọi backend API (không dùng cache để tồn kho luôn chính xác từ DynamoDB)
-    const res = await fetch(`${API_BASE}/api/products`, {
-      cache: 'no-store',
-    });
+    let items: Product[] = [];
 
-    if (!res.ok) {
-      return { items: [], total: 0, page: 1, page_size: 20, has_next: false };
+    try {
+      const res = await fetch(`${API_BASE}/api/products`, {
+        next: { revalidate: 15 },
+      });
+
+      if (res.ok) {
+        const data = (await res.json()) as { items?: Record<string, unknown>[] };
+        const normalized = (data.items ?? []).map(normalizeProduct);
+        if (normalized.length > 0) {
+          cachedAllProducts = normalized;
+          items = [...normalized];
+        }
+      }
+    } catch {
+      // Sử dụng dữ liệu cache gần nhất nếu kết nối tạm thời gián đoạn
     }
 
-    const data = (await res.json()) as { items?: Record<string, unknown>[] };
-    let items = (data.items ?? []).map(normalizeProduct);
+    if (items.length === 0 && cachedAllProducts && cachedAllProducts.length > 0) {
+      items = [...cachedAllProducts];
+    }
 
-    // 2. Lọc theo category (hỗ trợ cả slug tiếng Anh và tên tiếng Việt)
+    // 2. Lọc theo category (hỗ trợ cả slug tiếng Anh, tên chuẩn 6 danh mục và các biến thể cũ)
     if (filter?.category) {
       const targetCategory = (
         CATEGORY_MAP[filter.category.toLowerCase()] ?? filter.category
       ).toLowerCase();
+      const aliases = CATEGORY_ALIASES[targetCategory] ?? [targetCategory];
 
       items = items.filter((item) => {
         const itemCat = item.category.toLowerCase();
-        return (
-          itemCat === targetCategory ||
-          itemCat.includes(targetCategory) ||
-          targetCategory.includes(itemCat)
+        return aliases.some(
+          (alias) =>
+            itemCat === alias ||
+            itemCat.includes(alias) ||
+            alias.includes(itemCat),
         );
       });
     }
@@ -150,6 +224,28 @@ export async function getProducts(filter?: ProductFilter): Promise<ProductListRe
       items = items.filter((item) => item.stock > 0);
     }
 
+    // 7. Sắp xếp (Sort: Phổ biến nhất, Giá tăng dần, Giá giảm dần, Mới nhất)
+    if (filter?.sort === 'price_asc') {
+      items = [...items].sort((a, b) => a.price - b.price);
+    } else if (filter?.sort === 'price_desc') {
+      items = [...items].sort((a, b) => b.price - a.price);
+    } else if (filter?.sort === 'newest') {
+      items = [...items].sort((a, b) => {
+        const timeA = Date.parse(a.created_at) || 0;
+        const timeB = Date.parse(b.created_at) || 0;
+        if (timeB !== timeA) return timeB - timeA;
+        return b.product_id.localeCompare(a.product_id);
+      });
+    } else {
+      // Mặc định: Phổ biến nhất (ưu tiên sản phẩm chính chuẩn PROD_ và còn nhiều tồn kho)
+      items = [...items].sort((a, b) => {
+        const aIsStd = a.product_id.startsWith('PROD_') ? 1 : 0;
+        const bIsStd = b.product_id.startsWith('PROD_') ? 1 : 0;
+        if (bIsStd !== aIsStd) return bIsStd - aIsStd;
+        return a.product_id.localeCompare(b.product_id);
+      });
+    }
+
     return {
       items,
       total: items.length,
@@ -175,15 +271,15 @@ export async function getFeaturedProducts(): Promise<Product[]> {
  */
 export async function getProductById(id: string): Promise<Product | null> {
   try {
+    const all = await getProducts();
+    const found = all.items.find((p) => p.product_id === id || p.ProductID === id);
+    if (found) return found;
+
     const res = await fetch(`${API_BASE}/api/products/${id}`, {
-      cache: 'no-store',
+      next: { revalidate: 15 },
     });
 
-    if (!res.ok) {
-      // Fallback: tìm trong danh sách products nếu direct ID bị lệch
-      const all = await getProducts();
-      return all.items.find((p) => p.product_id === id || p.ProductID === id) ?? null;
-    }
+    if (!res.ok) return null;
 
     const raw = (await res.json()) as Record<string, unknown>;
     return normalizeProduct(raw);

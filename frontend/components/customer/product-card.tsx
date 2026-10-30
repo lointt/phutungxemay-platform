@@ -45,7 +45,7 @@ export function ProductCard({ product, horizontal = false }: ProductCardProps) {
         name: product.name,
         price: product.price,
         stock: product.stock,
-        image_url: imageUrl || '/placeholder-product.png',
+        image_url: imageUrl || '/brand-logo.png',
       });
       setAdded(true);
       setTimeout(() => setAdded(false), 2000);
@@ -65,15 +65,14 @@ export function ProductCard({ product, horizontal = false }: ProductCardProps) {
               src={imageUrl}
               alt={product.name}
               fill
+              unoptimized
               className="object-cover"
               sizes="96px"
               onError={() => setImgError(true)}
             />
           ) : (
-            <div className="w-full h-full bg-gradient-to-br from-orange-100 to-amber-50 flex items-center justify-center text-orange-400">
-              <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
-              </svg>
+            <div className="w-full h-full bg-slate-900 flex items-center justify-center">
+              <img src="/brand-logo.png" alt={product.name} className="w-14 h-14 object-contain rounded-lg" />
             </div>
           )}
         </div>
@@ -94,22 +93,21 @@ export function ProductCard({ product, horizontal = false }: ProductCardProps) {
       className="group flex flex-col bg-white rounded-xl border border-gray-200 hover:border-orange-200 hover:shadow-lg transition-all overflow-hidden"
     >
       {/* Product Image */}
-      <div className="relative aspect-square bg-gray-100 overflow-hidden flex items-center justify-center">
+      <div className="relative aspect-square bg-white overflow-hidden flex items-center justify-center border-b border-gray-100">
         {imageUrl && !imgError ? (
           <Image
             src={imageUrl}
             alt={product.name}
             fill
+            unoptimized
             className="object-cover group-hover:scale-105 transition-transform duration-300"
             sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
             onError={() => setImgError(true)}
           />
         ) : (
-          <div className="w-full h-full bg-gradient-to-br from-orange-50 via-amber-50 to-orange-100 flex flex-col items-center justify-center text-orange-400 p-4 text-center">
-            <svg className="w-12 h-12 mb-2 text-orange-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
-            </svg>
-            <span className="text-[11px] font-medium text-gray-500 line-clamp-1">{product.brand || 'Phụ Tùng'}</span>
+          <div className="w-full h-full bg-gradient-to-br from-slate-900 to-slate-800 flex flex-col items-center justify-center p-4 text-center">
+            <img src="/brand-logo.png" alt={product.name} className="w-24 h-24 object-contain mb-2 rounded-xl" />
+            <span className="text-[11px] font-medium text-orange-300 line-clamp-1">{product.brand || 'Phụ Tùng'}</span>
           </div>
         )}
 

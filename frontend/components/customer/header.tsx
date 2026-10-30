@@ -13,13 +13,14 @@ import { cn } from '@/lib/utils';
 
 export const HEADER_CATEGORIES = [
   { label: 'Tất cả sản phẩm', value: '' },
-  { label: 'Hệ thống phanh', value: 'Hệ thống phanh' },
-  { label: 'Hệ thống truyền động', value: 'Hệ thống truyền động' },
-  { label: 'Dầu nhớt & Phụ gia', value: 'Dầu nhớt & Phụ gia' },
-  { label: 'Giảm xóc sau', value: 'Giảm xóc sau' },
-  { label: 'Hệ thống giảm xóc & Lái', value: 'Hệ thống giảm xóc & Lái' },
+  { label: 'Truyền động', value: 'Truyền động' },
   { label: 'Động cơ', value: 'Động cơ' },
+  { label: 'Giảm xóc', value: 'Giảm xóc' },
+  { label: 'Hệ thống phanh', value: 'Hệ thống phanh' },
   { label: 'Điện - Đèn', value: 'Điện - Đèn' },
+  { label: 'Nhớt - Lọc', value: 'Nhớt - Lọc' },
+  { label: 'Lốp - Vỏ xe', value: 'Lốp - Vỏ xe' },
+  { label: 'Phụ kiện - Pô xe', value: 'Phụ kiện - Pô xe' },
 ];
 
 export function CustomerHeader() {
@@ -72,29 +73,34 @@ export function CustomerHeader() {
     : 'U';
 
   return (
-    <header className="sticky top-0 z-50 bg-white border-b border-gray-200 shadow-sm">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center h-16 gap-4">
+    <header className="sticky top-0 z-50 bg-white border-b border-gray-200 shadow-sm w-full">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+        {/* Top Row: Logo + Desktop Search + Actions */}
+        <div className="flex items-center justify-between h-14 sm:h-16 gap-2 sm:gap-4">
 
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-2 flex-shrink-0 group">
-            <div className="w-10 h-10 bg-gradient-to-tr from-orange-600 to-amber-500 rounded-xl flex items-center justify-center shadow-md shadow-orange-500/20 group-hover:scale-105 transition-transform">
-              <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
-              </svg>
+          <Link href="/" className="flex items-center gap-2.5 flex-shrink-0 group">
+            <img
+              src="/brand-logo.png?v=2"
+              alt="Phụ Tùng Xe Máy"
+              className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl object-cover shadow-md shadow-orange-500/25 ring-1 ring-orange-500/30 group-hover:scale-105 transition-transform"
+            />
+            <div className="flex flex-col leading-none whitespace-nowrap">
+              <span className="font-extrabold text-gray-900 text-xs sm:text-sm tracking-tight">
+                PHỤ TÙNG <span className="text-orange-500">XE MÁY</span>
+              </span>
+              <span className="text-[10px] font-semibold text-gray-400 tracking-wider uppercase mt-0.5">
+                Chính hãng 100%
+              </span>
             </div>
-            <span className="hidden sm:block font-bold text-gray-900 text-sm leading-tight">
-              Phụ Tùng<br />
-              <span className="text-orange-500">Xe Máy</span>
-            </span>
           </Link>
 
-          {/* Category Dropdown */}
-          <div className="relative hidden md:block" ref={categoryRef}>
+          {/* Category Dropdown (Desktop) */}
+          <div className="relative hidden md:block flex-shrink-0" ref={categoryRef}>
             <button
               onClick={() => setIsCategoryOpen((v) => !v)}
               className={cn(
-                'flex items-center gap-1.5 px-3 py-2 text-sm font-semibold rounded-xl transition-all',
+                'flex items-center gap-1.5 px-3 py-2 text-sm font-semibold rounded-xl transition-all whitespace-nowrap',
                 isCategoryOpen
                   ? 'bg-orange-50 text-orange-600'
                   : 'text-gray-700 hover:text-orange-600 hover:bg-orange-50/60',
@@ -125,8 +131,8 @@ export function CustomerHeader() {
             )}
           </div>
 
-          {/* Search Bar */}
-          <div className="flex-1 max-w-xl">
+          {/* Search Bar (Tablet & Desktop) */}
+          <div className="hidden sm:block flex-1 max-w-xl min-w-0">
             <form onSubmit={handleSearchSubmit} className="relative">
               <input
                 type="text"
@@ -156,20 +162,20 @@ export function CustomerHeader() {
             </form>
           </div>
 
-          {/* Right: Cart + Account */}
-          <div className="flex items-center gap-2 flex-shrink-0">
+          {/* Right: Cart + Account + Mobile Menu */}
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
 
             {/* Cart Button with Realtime Badge */}
             <Link
               href="/cart"
-              className="relative p-2.5 text-gray-700 hover:text-orange-600 hover:bg-orange-50 rounded-xl transition-all"
+              className="relative p-2 sm:p-2.5 text-gray-700 hover:text-orange-600 hover:bg-orange-50 rounded-xl transition-all"
               aria-label={`Giỏ hàng (${itemCount} sản phẩm)`}
             >
-              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
               </svg>
               {itemCount > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 min-w-[20px] h-5 px-1 bg-orange-500 text-white text-xs font-extrabold rounded-full flex items-center justify-center shadow-md shadow-orange-500/40 animate-pulse">
+                <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] sm:min-w-[20px] sm:h-5 px-1 bg-orange-500 text-white text-[10px] sm:text-xs font-extrabold rounded-full flex items-center justify-center shadow-md shadow-orange-500/40 animate-pulse">
                   {itemCount > 99 ? '99+' : itemCount}
                 </span>
               )}
@@ -181,9 +187,9 @@ export function CustomerHeader() {
                 <>
                   <button
                     onClick={() => setIsAccountOpen((v) => !v)}
-                    className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 hover:text-orange-600 hover:bg-orange-50 rounded-xl transition-colors border border-gray-200"
+                    className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 text-sm font-medium text-gray-700 hover:text-orange-600 hover:bg-orange-50 rounded-xl transition-colors border border-gray-200"
                   >
-                    <div className="w-7 h-7 bg-orange-500 text-white rounded-full flex items-center justify-center font-bold text-xs shadow-sm">
+                    <div className="w-6 h-6 sm:w-7 sm:h-7 bg-orange-500 text-white rounded-full flex items-center justify-center font-bold text-xs shadow-sm">
                       {initialLetter}
                     </div>
                     <span className="hidden lg:block max-w-[120px] truncate font-semibold text-gray-800">
@@ -256,16 +262,16 @@ export function CustomerHeader() {
                   )}
                 </>
               ) : (
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1 sm:gap-2">
                   <Link
                     href="/login"
-                    className="px-3 py-2 text-sm font-medium text-gray-700 hover:text-orange-600 transition-colors"
+                    className="px-2.5 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm font-medium text-gray-700 hover:text-orange-600 transition-colors whitespace-nowrap"
                   >
                     Đăng nhập
                   </Link>
                   <Link
                     href="/register"
-                    className="px-3.5 py-2 text-sm font-semibold text-white bg-orange-500 hover:bg-orange-400 rounded-xl transition-colors shadow-sm shadow-orange-500/20"
+                    className="px-2.5 py-1.5 sm:px-3.5 sm:py-2 text-xs sm:text-sm font-semibold text-white bg-orange-500 hover:bg-orange-400 rounded-xl transition-colors shadow-sm shadow-orange-500/20 whitespace-nowrap"
                   >
                     Đăng ký
                   </Link>
@@ -276,7 +282,7 @@ export function CustomerHeader() {
             {/* Mobile menu button */}
             <button
               onClick={() => setIsMobileMenuOpen((v) => !v)}
-              className="md:hidden p-2 text-gray-600 hover:text-orange-600 rounded-lg"
+              className="md:hidden p-1.5 sm:p-2 text-gray-600 hover:text-orange-600 rounded-lg"
               aria-label="Menu"
             >
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -284,6 +290,37 @@ export function CustomerHeader() {
               </svg>
             </button>
           </div>
+        </div>
+
+        {/* Mobile Search Bar Row */}
+        <div className="sm:hidden pb-2.5">
+          <form onSubmit={handleSearchSubmit} className="relative">
+            <input
+              type="text"
+              placeholder="Tìm phụ tùng, thương hiệu, dòng xe..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-9 py-2 text-base bg-gray-100/90 border border-transparent rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-400 focus:bg-white focus:border-orange-300 transition-all placeholder-gray-400 text-gray-800"
+            />
+            <button
+              type="submit"
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-orange-500 transition-colors"
+              aria-label="Tìm kiếm"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </button>
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs"
+              >
+                ✕
+              </button>
+            )}
+          </form>
         </div>
 
         {/* Mobile Menu */}

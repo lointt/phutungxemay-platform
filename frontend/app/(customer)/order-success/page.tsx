@@ -2,7 +2,11 @@
 
 // ============================================================
 // app/(customer)/order-success/page.tsx — Trang kết quả đặt hàng
-// Hiển thị mã đơn hàng, timeline trạng thái, thông tin vận đơn
+// Tích hợp đầy đủ:
+// - VNPAY Gateway (đón callback từ VNPay, hiển thị mã GD, đồng bộ IPN)
+// - Vận chuyển GHN (Hiển thị đối tác GHN, mã tracking GHN tự động từ backend)
+// - Thông báo Gmail SMTP (Xác nhận gửi email hóa đơn đơn hàng tự động)
+// - Timeline trạng thái giao vận trực quan
 // ============================================================
 
 import { Suspense, useEffect, useState } from 'react';
@@ -65,7 +69,7 @@ function OrderSuccessContent() {
       }
     }
 
-    // 2. Truy vấn trực tiếp Backend DynamoDB để lấy mã vận đơn GHN thật
+    // 2. Truy vấn trực tiếp Backend DynamoDB để lấy mã vận đơn GHN thật từ ShippingWorker
     const targetOrderId = rawId || (getLocalOrders().length > 0 ? getLocalOrders()[0].order_id : null);
     if (!targetOrderId) return;
 
@@ -89,7 +93,7 @@ function OrderSuccessContent() {
             return merged as Order;
           });
 
-          // Nếu mã tracking chưa về (worker đang gọi GHN trong 1-2s đầu), thử fetch lại
+          // Nếu mã tracking chưa về (ShippingWorker đang gọi GHN API trong 1-2s đầu), tự động fetch lại
           if (!tracking || tracking.includes('kết nối') || tracking.startsWith('GHN')) {
             if (pollAttempts < 3) {
               pollAttempts++;
@@ -105,14 +109,14 @@ function OrderSuccessContent() {
 
   const displayOrderId = order?.order_id || rawId || `ORD_${Date.now().toString().slice(-8)}`;
 
-  // Tự động gọi backend IPN để đồng bộ trạng thái PAID ngay khi VNPay chuyển hướng khách về trang kết quả
+  // Tự động kích hoạt đồng bộ IPN sang webhook payment nếu nhận callback từ VNPay
   useEffect(() => {
     if (vnpTxnRef && isVnpayPaid) {
       const search = typeof window !== 'undefined' ? window.location.search : '';
       fetch(`/api/payments/vnpay/ipn${search}`)
         .then((res) => res.json())
         .then((data) => {
-          console.log('[VNPAY_RETURN] Đã tự động đồng bộ IPN thành công:', data);
+          console.log('[VNPAY_RETURN] Đồng bộ thanh toán IPN thành công:', data);
         })
         .catch((err) => {
           console.warn('[VNPAY_RETURN] Lỗi đồng bộ IPN:', err);
@@ -121,17 +125,24 @@ function OrderSuccessContent() {
   }, [vnpTxnRef, isVnpayPaid]);
 
   const displayShippingFee = order?.shipping_fee ?? 30000;
-  const displayFinalAmount = (order?.final_amount ?? (order?.total_amount ? order.total_amount + displayShippingFee : 0)) || order?.total_amount || 0;
+  const displayFinalAmount =
+    (order?.final_amount ?? (order?.total_amount ? order.total_amount + displayShippingFee : 0)) ||
+    order?.total_amount ||
+    0;
 
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
       {/* Success Badge & Header */}
       <div className="text-center mb-8">
-        <div className={`w-16 h-16 ${isVnpayFailed ? 'bg-amber-100' : 'bg-green-100'} rounded-full flex items-center justify-center mx-auto mb-4 text-3xl shadow-sm`}>
+        <div
+          className={`w-16 h-16 ${
+            isVnpayFailed ? 'bg-amber-100 text-amber-600' : 'bg-green-100 text-green-600'
+          } rounded-full flex items-center justify-center mx-auto mb-4 text-3xl shadow-sm`}
+        >
           {isVnpayFailed ? '⚠️' : '✅'}
         </div>
         <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900">
-          {isVnpayFailed ? 'Đặt hàng đã ghi nhận (Chờ thanh toán lại)' : 'Đặt hàng thành công!'}
+          {isVnpayFailed ? 'Đơn hàng đã ghi nhận (Chờ thanh toán lại)' : 'Đặt hàng thành công!'}
         </h1>
         <p className="text-sm text-gray-500 mt-2">
           {isVnpayFailed
@@ -139,32 +150,44 @@ function OrderSuccessContent() {
             : 'Cảm ơn bạn đã tin tưởng mua phụ tùng tại Phụ Tùng Xe Máy.'}
         </p>
 
-        <div className="flex flex-wrap items-center justify-center gap-2 mt-3">
+        <div className="flex flex-wrap items-center justify-center gap-2 mt-4">
           <div className="inline-flex items-center gap-2 px-3 py-1 bg-orange-50 border border-orange-200 rounded-full text-xs text-orange-800">
             <span>Mã đơn hàng:</span>
-            <strong className="font-mono">{displayOrderId}</strong>
+            <strong className="font-mono text-orange-900">{displayOrderId}</strong>
           </div>
 
+          {/* VNPAY Status Badge */}
           {isVnpayPaid && (
             <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 border border-emerald-200 rounded-full text-xs text-emerald-800 font-semibold">
-              <span>💳</span> Đã thanh toán qua VNPay {vnpTransactionNo ? `(Mã GD: ${vnpTransactionNo})` : ''}
+              <span>💳</span> Đã thanh toán thành công qua VNPAY {vnpTransactionNo ? `(Mã GD: ${vnpTransactionNo})` : ''}
             </div>
           )}
 
           {isVnpayFailed && (
             <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-rose-50 border border-rose-200 rounded-full text-xs text-rose-800 font-semibold">
-              <span>⚠️</span> Thanh toán không thành công (Mã lỗi: {vnpResponseCode})
+              <span>⚠️</span> Thanh toán VNPAY thất bại (Mã lỗi: {vnpResponseCode})
             </div>
           )}
         </div>
       </div>
 
-      {/* Main Card */}
+      {/* Main Order Card */}
       <div className="bg-white rounded-2xl border border-gray-200 p-6 sm:p-8 shadow-sm space-y-8">
-        {/* Timeline */}
+        {/* Gmail Notification Card */}
+        <div className="bg-blue-50/80 border border-blue-200/80 rounded-xl p-4 flex items-start gap-3 text-xs text-blue-900">
+          <span className="text-xl flex-shrink-0">📧</span>
+          <div className="space-y-1">
+            <p className="font-bold text-blue-950">Email xác nhận đơn hàng tự động (Gmail SMTP)</p>
+            <p className="text-blue-800 leading-relaxed">
+              Hệ thống thông báo tự động (NotificationWorker) đã gửi chi tiết biên lai đơn hàng và mã vận chuyển đến email của bạn. Quý khách vui lòng kiểm tra hộp thư đến (Inbox) hoặc hòm thư Spam/Quảng cáo.
+            </p>
+          </div>
+        </div>
+
+        {/* Timeline Trực quan */}
         <div>
           <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
-            Tiến trình vận đơn
+            Tiến trình vận đơn & Xử lý
           </h2>
           <OrderTimeline
             status={order?.order_status || 'PLACED'}
@@ -173,23 +196,23 @@ function OrderSuccessContent() {
           />
         </div>
 
-        {/* Shipping & Delivery Details */}
+        {/* Shipping & Delivery Details (GHN) */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-6 border-t border-gray-100 text-xs">
           <div className="space-y-2">
             <h3 className="font-bold text-gray-900 text-sm flex items-center gap-1.5">
-              <span>🚚</span> Đơn vị giao nhận
+              <span>🚚</span> Đơn vị giao nhận (GHN)
             </h3>
             <p className="text-gray-700">
-              Đối tác vận chuyển: <strong>{order?.shipping_partner || 'Giao Hàng Nhanh (GHN)'}</strong>
+              Đối tác vận chuyển: <strong>{order?.shipping_partner || 'Giao Hàng Nhanh (GHN Express)'}</strong>
             </p>
-            <p className="text-gray-700">
-              Mã vận đơn (Tracking):{' '}
+            <p className="text-gray-700 flex items-center gap-1.5">
+              <span>Mã vận đơn:</span>{' '}
               <strong className="font-mono text-orange-600 bg-orange-50 px-2 py-0.5 rounded border border-orange-200">
                 {order?.tracking_number || 'Đang kết nối GHN...'}
               </strong>
             </p>
             <p className="text-gray-500">
-              Thời gian giao dự kiến: 2 - 3 ngày làm việc (trừ Chủ nhật)
+              Thời gian giao dự kiến: 2 - 3 ngày làm việc (GHN phát hàng tận nơi)
             </p>
           </div>
 
@@ -205,12 +228,12 @@ function OrderSuccessContent() {
               {order?.shipping_address.district || ''}, {order?.shipping_address.province || 'Việt Nam'}
             </p>
             <p className="text-gray-500">
-              Phương thức thanh toán: <strong>{method === 'COD' ? 'Tiền mặt khi nhận hàng (COD)' : method}</strong>
+              Phương thức thanh toán: <strong>{method === 'COD' ? 'Tiền mặt khi nhận hàng (COD)' : 'Cổng VNPAY'}</strong>
             </p>
           </div>
         </div>
 
-        {/* Order items preview if available */}
+        {/* Order items preview */}
         {order?.items && order.items.length > 0 && (
           <div className="pt-6 border-t border-gray-100">
             <h3 className="font-bold text-gray-900 text-xs uppercase tracking-wider mb-3">
@@ -219,8 +242,12 @@ function OrderSuccessContent() {
             <div className="divide-y divide-gray-100">
               {order.items.map((item, i) => (
                 <div key={i} className="py-2.5 flex items-center justify-between text-xs">
-                  <span className="font-medium text-gray-800 line-clamp-1">{item.name} x{item.quantity}</span>
-                  <span className="font-bold text-gray-900">{formatCurrencyVND(item.price * item.quantity)}</span>
+                  <span className="font-medium text-gray-800 line-clamp-1">
+                    {item.name} x{item.quantity}
+                  </span>
+                  <span className="font-bold text-gray-900">
+                    {formatCurrencyVND(item.price * item.quantity)}
+                  </span>
                 </div>
               ))}
               <div className="pt-3 flex items-center justify-between text-xs text-gray-500">
@@ -228,7 +255,7 @@ function OrderSuccessContent() {
                 <span className="font-semibold text-gray-700">{formatCurrencyVND(order.total_amount)}</span>
               </div>
               <div className="pt-1.5 flex items-center justify-between text-xs text-gray-500">
-                <span>Phí vận chuyển:</span>
+                <span>Phí vận chuyển GHN:</span>
                 <span className="font-semibold text-gray-700">{formatCurrencyVND(displayShippingFee)}</span>
               </div>
               <div className="pt-3 flex items-center justify-between text-sm font-bold text-gray-900 border-t border-dashed border-gray-200 mt-2">

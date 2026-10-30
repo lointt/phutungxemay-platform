@@ -12,16 +12,23 @@ export function CustomerFooter() {
 
           {/* Brand */}
           <div className="md:col-span-1">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-9 h-9 bg-orange-500 rounded-lg flex items-center justify-center">
-                <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
-                </svg>
+            <div className="flex items-center gap-3 mb-4">
+              <img
+                src="/brand-logo.png?v=2"
+                alt="Phụ Tùng Xe Máy"
+                className="w-11 h-11 rounded-xl object-cover shadow-md shadow-orange-500/25 ring-1 ring-orange-500/30"
+              />
+              <div>
+                <span className="font-extrabold text-white text-base tracking-tight block leading-tight">
+                  PHỤ TÙNG <span className="text-orange-400">XE MÁY</span>
+                </span>
+                <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest">
+                  Genuine Parts Store
+                </span>
               </div>
-              <span className="font-bold text-white text-lg">Phụ Tùng Xe Máy</span>
             </div>
             <p className="text-sm text-gray-400 leading-relaxed">
-              Chuyên phụ tùng xe máy chính hãng. Tư vấn kỹ thuật bởi Kỹ Sư AI 24/7. Giao hàng toàn quốc.
+              Chuyên phụ tùng xe máy chính hãng. Tư vấn kỹ thuật trực tuyến 24/7. Giao hàng toàn quốc.
             </p>
             <div className="flex gap-3 mt-4">
               <a href="#" className="w-8 h-8 bg-gray-700 hover:bg-orange-500 rounded-lg flex items-center justify-center transition-colors" aria-label="Facebook">
@@ -38,12 +45,14 @@ export function CustomerFooter() {
             <h3 className="font-semibold text-white mb-4">Danh Mục</h3>
             <ul className="space-y-2 text-sm">
               {[
-                { label: 'Động cơ', href: '/products?category=engine' },
-                { label: 'Hệ thống phanh', href: '/products?category=brake' },
-                { label: 'Truyền động', href: '/products?category=transmission' },
-                { label: 'Điện - Đèn', href: '/products?category=electrical' },
-                { label: 'Giảm xóc', href: '/products?category=suspension' },
-                { label: 'Nhớt - Lọc', href: '/products?category=oil_filter' },
+                { label: 'Truyền động', href: `/products?category=${encodeURIComponent('Truyền động')}` },
+                { label: 'Động cơ', href: `/products?category=${encodeURIComponent('Động cơ')}` },
+                { label: 'Giảm xóc', href: `/products?category=${encodeURIComponent('Giảm xóc')}` },
+                { label: 'Hệ thống phanh', href: `/products?category=${encodeURIComponent('Hệ thống phanh')}` },
+                { label: 'Điện - Đèn', href: `/products?category=${encodeURIComponent('Điện - Đèn')}` },
+                { label: 'Nhớt - Lọc', href: `/products?category=${encodeURIComponent('Nhớt - Lọc')}` },
+                { label: 'Lốp - Vỏ xe', href: `/products?category=${encodeURIComponent('Lốp - Vỏ xe')}` },
+                { label: 'Phụ kiện - Pô xe', href: `/products?category=${encodeURIComponent('Phụ kiện - Pô xe')}` },
               ].map((item) => (
                 <li key={item.href}>
                   <Link href={item.href} className="hover:text-orange-400 transition-colors">

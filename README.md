@@ -158,6 +158,7 @@ Sau khi hoàn tất, Terraform sẽ in ra các **Outputs**:
 - `cloudfront_domain_name`: Domain CloudFront (ví dụ: `d1yvm1htsd670r.cloudfront.net`).
 - `cloudfront_distribution_id`: ID phân phối (ví dụ: `E1G24NW0051BXO`).
 - `s3_hosting_bucket_name`: Tên S3 Bucket hosting static assets.
+- `s3_product_images_bucket_name`: Tên S3 Bucket lưu trữ hình ảnh phụ tùng (/images/*).
 - `lambda_nextjs_function_name`: Tên Lambda SSR (`NextjsServerHandler-Replica`).
 - `api_gateway_rest_endpoint`: Endpoint REST API Gateway.
 - `cognito_user_pool_id`: ID của Cognito User Pool.
@@ -207,6 +208,7 @@ Vào GitHub Repository $\rightarrow$ **Settings** $\rightarrow$ **Secrets and va
 | `AWS_REGION` | `ap-southeast-1` |
 | `AWS_ENVIRONMENT_TITLE` | `Replica` |
 | `AWS_S3_FRONTEND_BUCKET` | Output: `s3_hosting_bucket_name` |
+| `AWS_S3_IMAGES_BUCKET` | Output: `s3_product_images_bucket_name` |
 | `AWS_LAMBDA_SERVER_NAME` | Output: `lambda_nextjs_function_name` |
 | `CLOUDFRONT_DISTRIBUTION_ID` | Output: `cloudfront_distribution_id` |
 | `NEXT_PUBLIC_CDN_BASE_URL` | Output: `https://<cloudfront_domain_name>` |

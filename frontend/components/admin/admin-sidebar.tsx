@@ -73,10 +73,14 @@ export function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
       >
         {/* Brand / Logo */}
         <div className="h-16 px-6 border-b border-slate-800 flex items-center justify-between">
-          <Link href="/admin" className="flex items-center gap-2.5">
-            <span className="w-9 h-9 rounded-xl bg-gradient-to-tr from-orange-500 to-amber-500 flex items-center justify-center text-lg font-black shadow-lg shadow-orange-500/20">
-              ⚙️
-            </span>
+          <Link href="/admin" className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl overflow-hidden shadow-lg shadow-orange-500/20 border border-slate-700/80 bg-slate-900 shrink-0">
+              <img
+                src="/brand-logo.png?v=2"
+                alt="Phụ Tùng Xe Máy Logo"
+                className="w-full h-full object-cover"
+              />
+            </div>
             <div>
               <span className="font-extrabold text-sm text-white tracking-wide block leading-tight">
                 Phụ Tùng Xe Máy

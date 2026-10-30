@@ -69,6 +69,13 @@ resource "aws_cloudfront_distribution" "main" {
     }
   }
 
+  # Origin 4: S3 Product Images (/images/*)
+  origin {
+    domain_name              = aws_s3_bucket.product_images.bucket_regional_domain_name
+    origin_id                = "ProductImagesOrigin"
+    origin_access_control_id = aws_cloudfront_origin_access_control.hosting_oac.id
+  }
+
   # Default Cache Behavior: Chuyển tiếp toàn bộ request động vào Lambda SSR Function URL
   default_cache_behavior {
     target_origin_id       = "NextjsLambdaServerOrigin"
@@ -89,6 +96,19 @@ resource "aws_cloudfront_distribution" "main" {
 
     viewer_protocol_policy = "redirect-to-https"
     allowed_methods        = ["GET", "HEAD"]
+    cached_methods         = ["GET", "HEAD"]
+
+    compress        = true
+    cache_policy_id = local.managed_caching_optimized_id
+  }
+
+  # Ordered Behavior 2: Phục vụ ảnh sản phẩm từ S3 Product Images (/images/*) với Cache tối ưu
+  ordered_cache_behavior {
+    path_pattern     = "/images/*"
+    target_origin_id = "ProductImagesOrigin"
+
+    viewer_protocol_policy = "redirect-to-https"
+    allowed_methods        = ["GET", "HEAD", "OPTIONS"]
     cached_methods         = ["GET", "HEAD"]
 
     compress        = true

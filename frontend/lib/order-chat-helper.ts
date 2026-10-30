@@ -11,17 +11,17 @@ import type { Order, OrderStatus } from '@/types/order';
 function getStatusBadge(status: OrderStatus): string {
   switch (status) {
     case 'PLACED':
-      return '🟠 Đã đặt hàng (Đang chờ xác nhận)';
+      return 'Đã đặt hàng (Đang chờ xác nhận)';
     case 'PROCESSING':
-      return '🟡 Đang đóng gói & chuẩn bị hàng tại kho';
+      return 'Đang đóng gói & chuẩn bị hàng tại kho';
     case 'SHIPPED':
-      return '🚚 Đang vận chuyển trên đường giao';
+      return 'Đang vận chuyển trên đường giao';
     case 'DELIVERED':
-      return '✅ Giao hàng thành công';
+      return 'Giao hàng thành công';
     case 'CANCELLED':
-      return '❌ Đã hủy';
+      return 'Đã hủy';
     default:
-      return '📦 Đang xử lý';
+      return 'Đang xử lý';
   }
 }
 
@@ -43,30 +43,25 @@ function formatOrderDetailsMarkdown(order: Order): string {
   const paymentStatusStr =
     order.payment_status === 'PAID' ? 'Đã thanh toán' : 'Chờ thanh toán khi nhận hàng';
 
-  return `### 📦 Thông tin tra cứu đơn hàng #${order.order_id}
+  return `### Thông tin đơn hàng #${order.order_id}
 
 - **Trạng thái:** ${getStatusBadge(order.order_status)}
 - **Thời gian đặt:** ${formatDate(order.created_at)}
 - **Dự kiến giao hàng:** ${order.estimated_delivery ? formatDate(order.estimated_delivery) : '2 - 3 ngày làm việc'}
 - **Đơn vị giao nhận:** ${order.shipping_partner || 'Giao Hàng Nhanh (GHN)'}
-- **Mã vận đơn (Tracking):** \`${order.tracking_number || 'GHN' + order.order_id.slice(-6) + 'VN'}\`
+- **Mã vận đơn:** ${order.tracking_number || 'GHN' + order.order_id.slice(-6) + 'VN'}
 
-#### 📍 Thông tin người nhận:
+### Thông tin người nhận
 - **Người nhận:** **${addr.full_name}** (${addr.phone})
 - **Địa chỉ giao:** ${addressStr}
 - **Thanh toán:** ${paymentMethodStr} (${paymentStatusStr})
 
-#### 🛒 Phụ tùng đã đặt (${order.items.length} món):
+### Danh sách phụ tùng (${order.items.length} sản phẩm)
 ${itemsList}
 
----
-- **Tạm tính tiền hàng:** ${formatCurrencyVND(order.subtotal)}
-- **Phí giao hàng:** ${order.shipping_fee === 0 ? 'Miễn phí' : formatCurrencyVND(order.shipping_fee)}
-- **Tổng thanh toán:** **${formatCurrencyVND(order.total_amount)}**
-
----
-👉 Bạn có thể xem giao diện vận đơn tại: [Chi tiết đơn hàng #${order.order_id}](/orders/${order.order_id})
-💡 *Cần thắc mắc về cách lắp ráp bất kỳ phụ tùng nào trong đơn này, hãy nhắn tên phụ tùng để Kỹ Sư AI hướng dẫn chi tiết nhé!*`;
+- **Tạm tính:** ${formatCurrencyVND(order.subtotal)}
+- **Phí vận chuyển:** ${order.shipping_fee === 0 ? 'Miễn phí' : formatCurrencyVND(order.shipping_fee)}
+- **Tổng thanh toán:** **${formatCurrencyVND(order.total_amount)}**`;
 }
 
 /**
@@ -82,16 +77,13 @@ export async function checkOrderInChat(text: string): Promise<string | null> {
 
   if (orderIdMatch) {
     const rawId = orderIdMatch[0];
-    // Tìm trong localStorage
     let order = getLocalOrderById(rawId);
 
-    // Nếu không khớp chính xác hoa thường, thử tìm không phân biệt chữ hoa chữ thường
     if (!order) {
       const all = getLocalOrders();
       order = all.find((o) => o.order_id.toLowerCase() === rawId.toLowerCase()) ?? null;
     }
 
-    // Nếu chưa thấy trong localStorage, thử gọi API Backend
     if (!order) {
       try {
         const res = await apiClient.get<Order>(`/api/orders/${rawId}`);
@@ -106,14 +98,13 @@ export async function checkOrderInChat(text: string): Promise<string | null> {
     if (order) {
       return formatOrderDetailsMarkdown(order);
     } else {
-      return `### 🔍 Không tìm thấy đơn hàng \`${rawId}\`
+      return `### Không tìm thấy đơn hàng ${rawId}
 
-Kỹ Sư AI đã tra cứu hệ thống nhưng không tìm thấy đơn hàng có mã **"${rawId}"**.
+Hệ thống chưa tìm thấy thông tin đơn hàng có mã **${rawId}**.
 
-**Gợi ý kiểm tra:**
-- Vui lòng kiểm tra lại chính xác các ký tự mã đơn hàng (thường có dạng \`ORD_xxxxxx\`).
-- Bạn có thể vào mục [Đơn hàng của tôi](/account/orders) để xem lại danh sách đơn đã đặt.
-- Nếu bạn vừa đặt hàng, đơn hàng có thể đang được hệ thống xử lý cập nhật.`;
+**Hướng dẫn kiểm tra:**
+- Vui lòng kiểm tra lại chính xác các ký tự mã đơn hàng (định dạng chuẩn: **ORD_xxxxxx**).
+- Bạn có thể truy cập mục **Đơn hàng của tôi** trên thanh tài khoản để xem danh sách đơn đã đặt.`;
     }
   }
 
@@ -135,22 +126,21 @@ Kỹ Sư AI đã tra cứu hệ thống nhưng không tìm thấy đơn hàng c�
         .slice(0, 3)
         .map(
           (o, idx) =>
-            `${idx + 1}. Mã đơn: \`${o.order_id}\`\n   - **Trạng thái:** ${getStatusBadge(o.order_status)}\n   - **Ngày đặt:** ${formatDate(o.created_at)}\n   - **Tổng tiền:** ${formatCurrencyVND(o.total_amount)}`,
+            `${idx + 1}. **Mã đơn ${o.order_id}** — ${getStatusBadge(o.order_status)} (${formatCurrencyVND(o.total_amount)})`,
         )
-        .join('\n\n');
+        .join('\n');
 
-      return `### 📋 Danh sách đơn hàng gần đây của bạn:
+      return `### Đơn hàng gần đây của bạn
 
 ${recentList}
 
----
-👉 Bạn hãy gửi lại mã đơn (ví dụ: \`${all[0].order_id}\`) để Kỹ Sư AI tra cứu chi tiết tiến trình vận chuyển và thông tin linh kiện nhé!`;
+Bạn vui lòng nhập mã đơn (ví dụ: **${all[0].order_id}**) để xem chi tiết lộ trình giao nhận và danh sách phụ tùng.`;
     } else {
-      return `### 📦 Tra cứu đơn hàng
+      return `### Tra cứu trạng thái đơn hàng
 
-Hiện tại trên thiết bị này chưa ghi nhận đơn hàng nào.
+Hiện tại chưa có đơn hàng nào được lưu trên phiên trình duyệt này.
 
-👉 Nếu bạn đã có mã đơn hàng (ví dụ: \`ORD_xxxxxx\`), vui lòng gửi mã để Kỹ Sư AI kiểm tra tiến độ giao hàng và thông tin phụ tùng cho bạn nhé!`;
+Nếu bạn đã đặt hàng, vui lòng nhập trực tiếp **Mã đơn hàng** (ví dụ: **ORD_123456**) vào ô chat bên dưới để hệ thống kiểm tra chi tiết tiến độ giao hàng.`;
     }
   }
 
