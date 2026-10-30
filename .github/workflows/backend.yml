@@ -1,0 +1,115 @@
+name: Backend CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend.yml'
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  build-and-deploy:
+    name: Package & Deploy Python Microservices & Workers
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: ⚙️ Setup Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: 🔐 Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION || 'ap-southeast-1' }}
+
+      - name: 📦 Package & Deploy CatalogServiceHandler
+        run: |
+          cd backend/services/catalog
+          zip -q lambda_function.zip handler.py
+          mv lambda_function.zip lambda_function_ready.zip
+          python3 -c "import zipfile; zf = zipfile.ZipFile('catalog.zip', 'w'); zf.write('handler.py', 'lambda_function.py'); zf.close()"
+          aws lambda update-function-code \
+            --function-name CatalogServiceHandler-${{ secrets.AWS_ENVIRONMENT_TITLE || 'Replica' }} \
+            --zip-file fileb://catalog.zip
+          cd ../../..
+
+      - name: 📦 Package & Deploy CartServiceHandler
+        run: |
+          cd backend/services/cart
+          python3 -c "import zipfile; zf = zipfile.ZipFile('cart.zip', 'w'); zf.write('handler.py', 'lambda_function.py'); zf.close()"
+          aws lambda update-function-code \
+            --function-name CartServiceHandler-${{ secrets.AWS_ENVIRONMENT_TITLE || 'Replica' }} \
+            --zip-file fileb://cart.zip
+          cd ../../..
+
+      - name: 📦 Package & Deploy OrderServiceHandler
+        run: |
+          cd backend/services/order
+          python3 -c "import zipfile; zf = zipfile.ZipFile('order.zip', 'w'); zf.write('handler.py', 'lambda_function.py'); zf.close()"
+          aws lambda update-function-code \
+            --function-name OrderServiceHandler-${{ secrets.AWS_ENVIRONMENT_TITLE || 'Replica' }} \
+            --zip-file fileb://order.zip
+          cd ../../..
+
+      - name: 📦 Package & Deploy PaymentWebhookHandler
+        run: |
+          cd backend/services/payment_webhook
+          python3 -c "import zipfile; zf = zipfile.ZipFile('payment.zip', 'w'); zf.write('handler.py', 'lambda_function.py'); zf.close()"
+          aws lambda update-function-code \
+            --function-name PaymentWebhookHandler-${{ secrets.AWS_ENVIRONMENT_TITLE || 'Replica' }} \
+            --zip-file fileb://payment.zip
+          cd ../../..
+
+      - name: 📦 Package & Deploy UserProfileHandler
+        run: |
+          cd backend/services/user
+          python3 -c "import zipfile; zf = zipfile.ZipFile('user.zip', 'w'); zf.write('handler.py', 'lambda_function.py'); zf.close()"
+          aws lambda update-function-code \
+            --function-name UserProfileHandler-${{ secrets.AWS_ENVIRONMENT_TITLE || 'Replica' }} \
+            --zip-file fileb://user.zip
+          cd ../../..
+
+      - name: 📦 Package & Deploy InventoryWorker
+        run: |
+          cd backend/workers/inventory
+          python3 -c "import zipfile; zf = zipfile.ZipFile('inventory.zip', 'w'); zf.write('handler.py', 'lambda_function.py'); zf.close()"
+          aws lambda update-function-code \
+            --function-name InventoryWorker-${{ secrets.AWS_ENVIRONMENT_TITLE || 'Replica' }} \
+            --zip-file fileb://inventory.zip
+          cd ../../..
+
+      - name: 📦 Package & Deploy ShippingWorker
+        run: |
+          cd backend/workers/shipping
+          python3 -c "import zipfile; zf = zipfile.ZipFile('shipping.zip', 'w'); zf.write('handler.py', 'lambda_function.py'); zf.close()"
+          aws lambda update-function-code \
+            --function-name ShippingWorker-${{ secrets.AWS_ENVIRONMENT_TITLE || 'Replica' }} \
+            --zip-file fileb://shipping.zip
+          cd ../../..
+
+      - name: 📦 Package & Deploy NotificationWorker (Gmail SMTP)
+        run: |
+          cd backend/workers/notification
+          python3 -c "import zipfile; zf = zipfile.ZipFile('notification.zip', 'w'); zf.write('handler.py', 'lambda_function.py'); zf.close()"
+          aws lambda update-function-code \
+            --function-name NotificationWorker-${{ secrets.AWS_ENVIRONMENT_TITLE || 'Replica' }} \
+            --zip-file fileb://notification.zip
+          cd ../../..
+
+      - name: 🔄 Invalidate CloudFront API Cache
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} \
+            --paths "/api/*"

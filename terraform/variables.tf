@@ -5,9 +5,9 @@ variable "aws_region" {
 }
 
 variable "environment" {
-  description = "Môi trường triển khai (prod / staging / dev)"
+  description = "Môi trường triển khai (replica / prod / staging / dev)"
   type        = string
-  default     = "prod"
+  default     = "replica"
 }
 
 variable "project_name" {
@@ -19,5 +19,5 @@ variable "project_name" {
 variable "hosting_bucket_name" {
   description = "Tên S3 Bucket lưu trữ Static Assets Frontend (_next/static)"
   type        = string
-  default     = "phutungxemay-frontend-hosting-2026"
+  default     = "phutungxemay-frontend-replica-2026"
 }
