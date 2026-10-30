@@ -8,7 +8,8 @@ import { ProductsCatalog } from '@/components/customer/products-catalog';
 import { ProductCardSkeleton } from '@/components/customer/product-card';
 import { getProducts } from '@/lib/server-api';
 
-export const dynamic = 'force-dynamic';
+// searchParams & dynamic components runtime
+export const instant = false;
 
 export const metadata: Metadata = {
   title: 'Tất Cả Phụ Tùng | Phụ Tùng Xe Máy',

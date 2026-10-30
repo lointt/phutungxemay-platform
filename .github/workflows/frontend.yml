@@ -61,8 +61,8 @@ jobs:
 
       - name: 🖼️ Sync Product Images to Dedicated S3 Bucket
         run: |
-          if [ -d "frontend/public/images" ]; then
-            aws s3 sync frontend/public/images s3://${{ secrets.AWS_S3_IMAGES_BUCKET || 'phutungxemay-product-images-replica-2026' }}/images --cache-control "public, max-age=31536000, immutable"
+          if [ -d "public/images" ]; then
+            aws s3 sync public/images s3://${{ secrets.AWS_S3_IMAGES_BUCKET || 'phutungxemay-product-images-replica-2026' }}/images --cache-control "public, max-age=31536000, immutable"
           fi
 
       - name: ⚡ Package & Update Lambda NextjsServerHandler
