@@ -81,7 +81,7 @@ export function CustomerHeader() {
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2.5 flex-shrink-0 group">
             <img
-              src="/brand-logo.png?v=2"
+              src="/images/brand-logo.png"
               alt="Phụ Tùng Xe Máy"
               className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl object-cover shadow-md shadow-orange-500/25 ring-1 ring-orange-500/30 group-hover:scale-105 transition-transform"
             />

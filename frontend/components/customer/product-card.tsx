@@ -45,7 +45,7 @@ export function ProductCard({ product, horizontal = false }: ProductCardProps) {
         name: product.name,
         price: product.price,
         stock: product.stock,
-        image_url: imageUrl || '/brand-logo.png',
+        image_url: imageUrl || '/images/brand-logo.png',
       });
       setAdded(true);
       setTimeout(() => setAdded(false), 2000);
@@ -72,7 +72,7 @@ export function ProductCard({ product, horizontal = false }: ProductCardProps) {
             />
           ) : (
             <div className="w-full h-full bg-slate-900 flex items-center justify-center">
-              <img src="/brand-logo.png" alt={product.name} className="w-14 h-14 object-contain rounded-lg" />
+              <img src="/images/brand-logo.png" alt={product.name} className="w-14 h-14 object-contain rounded-lg" />
             </div>
           )}
         </div>
@@ -106,7 +106,7 @@ export function ProductCard({ product, horizontal = false }: ProductCardProps) {
           />
         ) : (
           <div className="w-full h-full bg-gradient-to-br from-slate-900 to-slate-800 flex flex-col items-center justify-center p-4 text-center">
-            <img src="/brand-logo.png" alt={product.name} className="w-24 h-24 object-contain mb-2 rounded-xl" />
+            <img src="/images/brand-logo.png" alt={product.name} className="w-24 h-24 object-contain mb-2 rounded-xl" />
             <span className="text-[11px] font-medium text-orange-300 line-clamp-1">{product.brand || 'Phụ Tùng'}</span>
           </div>
         )}

@@ -77,7 +77,7 @@ export function ChatWindow({ onClose, isStandalone = false, initialPrompt }: Cha
         <div className="flex items-center gap-3 min-w-0">
           <div className="relative flex-shrink-0">
             <img
-              src="/chatbot-avatar.png"
+              src="/images/chatbot-avatar.png"
               alt="Chuyên viên tư vấn AI"
               className="w-10 h-10 rounded-full object-cover ring-2 ring-orange-500/80 shadow-md"
             />
@@ -164,7 +164,7 @@ export function ChatWindow({ onClose, isStandalone = false, initialPrompt }: Cha
         {isThinking && (
           <div className="flex items-center gap-2.5 my-2 animate-in fade-in duration-200">
             <img
-              src="/chatbot-avatar.png"
+              src="/images/chatbot-avatar.png"
               alt="Chuyên viên tư vấn"
               className="w-7 h-7 rounded-full object-cover border border-slate-200 flex-shrink-0"
             />

@@ -31,7 +31,7 @@ export function ChatMessage({ message }: ChatMessageProps) {
       ) : (
         <div className="relative flex-shrink-0 mt-0.5">
           <img
-            src="/chatbot-avatar.png"
+            src="/images/chatbot-avatar.png"
             alt="Chuyên viên tư vấn AI"
             className="w-8 h-8 rounded-full object-cover shadow-sm border border-slate-200"
           />

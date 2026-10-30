@@ -14,7 +14,7 @@ export function CustomerFooter() {
           <div className="md:col-span-1">
             <div className="flex items-center gap-3 mb-4">
               <img
-                src="/brand-logo.png?v=2"
+                src="/images/brand-logo.png"
                 alt="Phụ Tùng Xe Máy"
                 className="w-11 h-11 rounded-xl object-cover shadow-md shadow-orange-500/25 ring-1 ring-orange-500/30"
               />

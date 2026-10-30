@@ -23,7 +23,7 @@ export function ChatWidget() {
           >
             {/* Avatar tròn */}
             <img
-              src="/chatbot-avatar.png"
+              src="/images/chatbot-avatar.png"
               alt="Trợ lý tư vấn"
               className="w-full h-full rounded-full object-cover"
             />

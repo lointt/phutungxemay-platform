@@ -76,7 +76,7 @@ export function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
           <Link href="/admin" className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl overflow-hidden shadow-lg shadow-orange-500/20 border border-slate-700/80 bg-slate-900 shrink-0">
               <img
-                src="/brand-logo.png?v=2"
+                src="/images/brand-logo.png"
                 alt="Phụ Tùng Xe Máy Logo"
                 className="w-full h-full object-cover"
               />

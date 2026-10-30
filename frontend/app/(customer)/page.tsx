@@ -83,7 +83,7 @@ export default async function HomePage() {
                 <div className="absolute inset-0 bg-gradient-to-tr from-orange-500/35 via-amber-500/20 to-transparent rounded-full blur-3xl" />
                 <div className="relative w-72 h-72 lg:w-80 lg:h-80 rounded-[2rem] overflow-hidden border-2 border-orange-500/40 shadow-2xl shadow-orange-950/70 group">
                   <img
-                    src="/brand-logo.png?v=2"
+                    src="/images/brand-logo.png"
                     alt="Phụ Tùng Xe Máy Chính Hãng"
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                   />
