@@ -11,7 +11,8 @@ if (typeof net.setDefaultAutoSelectFamily === 'function') {
   net.setDefaultAutoSelectFamily(false);
 }
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'https://d1ksuy3hfmko20.cloudfront.net';
+const rawApiBase = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'https://d1ksuy3hfmko20.cloudfront.net';
+const API_BASE = rawApiBase.replace(/\/api\/?$/, '');
 
 // Bộ nhớ đệm dự phòng trên Server để chống rớt mạng tạm thời
 let cachedAllProducts: Product[] | null = null;
@@ -142,8 +143,9 @@ export async function getProducts(filter?: ProductFilter): Promise<ProductListRe
       });
 
       if (res.ok) {
-        const data = (await res.json()) as { items?: Record<string, unknown>[] };
-        const normalized = (data.items ?? []).map(normalizeProduct);
+        const data = (await res.json()) as { items?: Record<string, unknown>[]; products?: Record<string, unknown>[] };
+        const rawList = Array.isArray(data) ? data : (data.products ?? data.items ?? []);
+        const normalized = rawList.map(normalizeProduct);
         if (normalized.length > 0) {
           cachedAllProducts = normalized;
           items = [...normalized];
