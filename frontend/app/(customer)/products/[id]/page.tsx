@@ -86,6 +86,7 @@ export default async function ProductDetailPage({ params }: Props) {
               src={images[0]}
               alt={product.name}
               fill
+              unoptimized
               className="object-cover"
               priority
               sizes="(max-width: 768px) 100vw, 50vw"
@@ -102,7 +103,7 @@ export default async function ProductDetailPage({ params }: Props) {
             <div className="grid grid-cols-5 gap-2">
               {images.slice(1, 6).map((img, idx) => (
                 <div key={idx} className="relative aspect-square bg-gray-100 rounded-xl overflow-hidden border-2 border-transparent hover:border-orange-400 cursor-pointer transition-colors">
-                  <Image src={img} alt={`${product.name} ${idx + 2}`} fill className="object-cover" sizes="80px" />
+                  <Image src={img} alt={`${product.name} ${idx + 2}`} fill unoptimized className="object-cover" sizes="80px" />
                 </div>
               ))}
             </div>
