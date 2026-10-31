@@ -299,7 +299,7 @@ function mapCognitoError(message: string): string {
   if (message.includes('UserNotConfirmedException')) {
     return 'Tài khoản chưa được xác thực. Vui lòng kiểm tra email và nhập mã OTP.';
   }
-  if (message.includes('UsernameExistsException')) {
+  if (message.includes('UsernameExistsException') || message.toLowerCase().includes('already exists')) {
     return 'Email này đã được đăng ký. Vui lòng sử dụng email khác hoặc đăng nhập.';
   }
   if (message.includes('CodeMismatchException')) {
@@ -322,3 +322,4 @@ function mapCognitoError(message: string): string {
   }
   return message;
 }
+

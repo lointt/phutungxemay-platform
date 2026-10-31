@@ -48,16 +48,16 @@ jobs:
 
       - name: 🏗️ Build Application with OpenNext
         env:
-          NEXT_PUBLIC_CDN_BASE_URL: ${{ secrets.NEXT_PUBLIC_CDN_BASE_URL || 'https://d1yvm1htsd670r.cloudfront.net' }}
-          NEXT_PUBLIC_API_BASE_URL: ${{ secrets.NEXT_PUBLIC_API_BASE_URL || 'https://d1yvm1htsd670r.cloudfront.net' }}
-          NEXT_PUBLIC_COGNITO_USER_POOL_ID: ${{ secrets.NEXT_PUBLIC_COGNITO_USER_POOL_ID || 'ap-southeast-1_kYEaF7YJn' }}
-          NEXT_PUBLIC_COGNITO_CLIENT_ID: ${{ secrets.NEXT_PUBLIC_COGNITO_CLIENT_ID || '4q8j12ruf2pcvu723ssh2j15p3' }}
+          NEXT_PUBLIC_CDN_BASE_URL: ${{ secrets.NEXT_PUBLIC_CDN_BASE_URL }}
+          NEXT_PUBLIC_API_BASE_URL: ${{ secrets.NEXT_PUBLIC_API_BASE_URL }}
+          NEXT_PUBLIC_COGNITO_USER_POOL_ID: ${{ secrets.NEXT_PUBLIC_COGNITO_USER_POOL_ID }}
+          NEXT_PUBLIC_COGNITO_CLIENT_ID: ${{ secrets.NEXT_PUBLIC_COGNITO_CLIENT_ID }}
           NEXT_PUBLIC_WEBSOCKET_URL: ${{ secrets.NEXT_PUBLIC_WEBSOCKET_URL }}
         run: npm run build:open-next
 
       - name: ☁️ Sync Static Assets to S3
         run: |
-          aws s3 sync .open-next/assets s3://${{ secrets.AWS_S3_FRONTEND_BUCKET || 'phutungxemay-frontend-replica-2026' }} --delete
+          aws s3 sync .open-next/assets s3://${{ secrets.AWS_S3_FRONTEND_BUCKET }} --delete
 
       - name: 🖼️ Sync Product Images to Dedicated S3 Bucket
         run: |
@@ -71,11 +71,12 @@ jobs:
           zip -rq ../../../../function.zip .
           cd ../../../..
           aws lambda update-function-code \
-            --function-name ${{ secrets.AWS_LAMBDA_SERVER_NAME || 'NextjsServerHandler-Replica' }} \
+            --function-name ${{ secrets.AWS_LAMBDA_SERVER_NAME }} \
             --zip-file fileb://function.zip
 
       - name: 🔄 Invalidate CloudFront Distribution Cache
         run: |
           aws cloudfront create-invalidation \
-            --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID || 'E1G24NW0051BXO' }} \
+            --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} \
             --paths "/*"
+
