@@ -182,12 +182,19 @@ def build_payment_success_template(detail):
 
 def process_notification_event(detail_type, detail):
     order_id = detail.get("order_id", "N/A")
+    payment_method = str(detail.get("payment_method", "")).upper()
     shipping_addr = detail.get("shipping_address", {})
     recipient_email = shipping_addr.get("email") or detail.get("customer_email") or "phutungxemay246@gmail.com"
 
-    print(f"[NOTIFICATION] Bắt sự kiện '{detail_type}' cho đơn #{order_id} -> Email: {recipient_email}")
+    print(f"[NOTIFICATION] Bắt sự kiện '{detail_type}' cho đơn #{order_id} (PTTT: {payment_method}) -> Email: {recipient_email}")
 
     if detail_type == "OrderPlaced":
+        # Đối với đơn hàng Online (VNPAY): KHÔNG gửi email xác nhận đặt hàng sớm khi khách chưa thanh toán!
+        # Chỉ khi khách hoàn tất nhập thẻ & OTP trên cổng VNPay, sự kiện 'PaymentSuccess' mới kích hoạt gửi email thanh toán thành công.
+        if payment_method == "VNPAY":
+            print(f"[NOTIFICATION] Đơn #{order_id} chọn thanh toán qua VNPAY. Tạm thời không gửi email để chờ khách nhập OTP và hoàn tất thanh toán.")
+            return
+
         subject = f"[PhuTungXeMay] Xác nhận đơn hàng #{order_id} thành công"
         html = build_order_placed_template(detail)
         send_email_smtp(recipient_email, subject, html)
