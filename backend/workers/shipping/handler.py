@@ -101,28 +101,30 @@ def call_ghn_create_order(order_id, shipping_address, items, cod_amount=0):
     print(f"[GHN_API] Tạo đơn GHN cho #{order_id} (COD: {cod_amount}đ)...")
 
     full_addr = shipping_address.get('address') or f"{shipping_address.get('street', '')}, {shipping_address.get('ward', '')}, {shipping_address.get('district', '')}, {shipping_address.get('province', '')}"
-    district_id, ward_code = resolve_district_and_ward(full_addr)
-
-    if shipping_address.get('district_id'):
-        try:
-            district_id = int(shipping_address.get('district_id'))
-        except Exception:
-            pass
-    if shipping_address.get('ward_code'):
-        ward_code = str(shipping_address.get('ward_code'))
+    ward_name = shipping_address.get('ward') or 'Phường 12'
+    district_name = shipping_address.get('district') or 'Quận 10'
+    province_name = shipping_address.get('province') or 'Hồ Chí Minh'
 
     if GHN_API_TOKEN and GHN_SHOP_ID:
         try:
             ghn_payload = {
-                "payment_type_id": 1,
+                "payment_type_id": 2,
                 "note": "Phụ tùng xe máy chính hãng - Vui lòng gọi trước khi giao",
                 "required_note": "CHOXEMHANGKHONGTHU",
+                "from_name": "Shop Phụ Tùng Xe Máy",
+                "from_phone": "0813072077",
+                "from_address": "123 Võ Văn Ngân, Phường Linh Chiểu, Thành phố Thủ Đức, TP. Hồ Chí Minh",
+                "from_ward_name": "Phường Linh Chiểu",
+                "from_district_name": "Thành phố Thủ Đức",
+                "from_province_name": "Hồ Chí Minh",
                 "to_name": shipping_address.get('full_name') or shipping_address.get('recipient_name') or 'Khách hàng',
-                "to_phone": shipping_address.get('phone') or '0901234567',
-                "to_address": full_addr or '123 Nguyen Trai, Q5, TP.HCM',
-                "to_ward_code": ward_code,
-                "to_district_id": district_id,
+                "to_phone": shipping_address.get('phone') or '0813072077',
+                "to_address": full_addr or '371 Sư Vạn Hạnh, Phường 12, Quận 10, TP. Hồ Chí Minh',
+                "to_ward_name": ward_name,
+                "to_district_name": district_name,
+                "to_province_name": province_name,
                 "cod_amount": int(cod_amount),
+                "content": "Phụ tùng xe máy chính hãng",
                 "weight": 500,
                 "length": 20,
                 "width": 15,
@@ -135,7 +137,7 @@ def call_ghn_create_order(order_id, shipping_address, items, cod_amount=0):
                         "price": int(it.get('price', 100000))
                     }
                     for it in items
-                ]
+                ] if items else [{"name": "Phụ tùng xe máy", "quantity": 1, "price": int(cod_amount) if cod_amount else 100000}]
             }
 
             req = urllib.request.Request(
