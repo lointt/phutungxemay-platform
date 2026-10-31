@@ -258,8 +258,8 @@ resource "aws_lambda_function" "order_service" {
       PRODUCTS_TABLE    = aws_dynamodb_table.products.name
       EVENT_BUS_NAME    = aws_cloudwatch_event_bus.ecommerce_bus.name
       VNPAY_RETURN_URL  = "https://${aws_cloudfront_distribution.main.domain_name}/order-success"
-      VNPAY_HASH_SECRET = "RAHQKBUFUIZLMTMDIPOSYMPS"
-      VNPAY_TMN_CODE    = "2QXUI4J4"
+      VNPAY_HASH_SECRET = "PPRHCDSJLGCYANFCBNLCGCZXORZCOXXI"
+      VNPAY_TMN_CODE    = "17PKFAFO"
       VNPAY_URL         = "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html"
     }
   }
@@ -289,7 +289,7 @@ resource "aws_lambda_function" "payment_webhook" {
     variables = {
       ORDERS_TABLE      = aws_dynamodb_table.orders.name
       EVENT_BUS_NAME    = aws_cloudwatch_event_bus.ecommerce_bus.name
-      VNPAY_HASH_SECRET = "RAHQKBUFUIZLMTMDIPOSYMPS"
+      VNPAY_HASH_SECRET = "PPRHCDSJLGCYANFCBNLCGCZXORZCOXXI"
     }
   }
 

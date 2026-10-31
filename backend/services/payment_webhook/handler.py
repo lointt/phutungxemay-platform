@@ -11,7 +11,7 @@ from boto3.dynamodb.conditions import Key
 
 ORDERS_TABLE_NAME = os.environ.get('ORDERS_TABLE', 'Orders_Replica')
 EVENT_BUS_NAME = os.environ.get('EVENT_BUS_NAME', 'ecommerce-event-bus-replica')
-VNPAY_HASH_SECRET = os.environ.get('VNPAY_HASH_SECRET', 'RAHQKBUFUIZLMTMDIPOSYMPS')
+VNPAY_HASH_SECRET = os.environ.get('VNPAY_HASH_SECRET', 'PPRHCDSJLGCYANFCBNLCGCZXORZCOXXI')
 
 dynamodb = boto3.resource('dynamodb')
 events_client = boto3.client('events')

@@ -17,8 +17,8 @@ PRODUCTS_TABLE_NAME = os.environ.get('PRODUCTS_TABLE', 'Products_Replica')
 EVENT_BUS_NAME = os.environ.get('EVENT_BUS_NAME', 'ecommerce-event-bus-replica')
 
 VNPAY_URL = os.environ.get('VNPAY_URL', 'https://sandbox.vnpayment.vn/paymentv2/vpcpay.html')
-VNPAY_TMN_CODE = os.environ.get('VNPAY_TMN_CODE', '2QXUI4J4')
-VNPAY_HASH_SECRET = os.environ.get('VNPAY_HASH_SECRET', 'RAHQKBUFUIZLMTMDIPOSYMPS')
+VNPAY_TMN_CODE = os.environ.get('VNPAY_TMN_CODE', '17PKFAFO')
+VNPAY_HASH_SECRET = os.environ.get('VNPAY_HASH_SECRET', 'PPRHCDSJLGCYANFCBNLCGCZXORZCOXXI')
 VNPAY_RETURN_URL = os.environ.get('VNPAY_RETURN_URL', 'https://d1yvm1htsd670r.cloudfront.net/order-success')
 
 dynamodb = boto3.resource('dynamodb')
