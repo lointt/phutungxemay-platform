@@ -71,10 +71,10 @@ export function generateGuestId(): string {
 
 /**
  * Lấy CDN URL đầy đủ từ image path (key từ S3).
- * Ví dụ: getImageUrl('/images/sp-001.jpg') → 'https://d1ksuy3hfmko20.cloudfront.net/images/sp-001.jpg'
+ * Ví dụ: getImageUrl('/images/sp-001.jpg') → 'https://d1yvm1htsd670r.cloudfront.net/images/sp-001.jpg'
  */
 export function getImageUrl(imagePath: string): string {
-  const baseUrl = process.env.NEXT_PUBLIC_CDN_BASE_URL ?? 'https://d1ksuy3hfmko20.cloudfront.net';
+  const baseUrl = process.env.NEXT_PUBLIC_CDN_BASE_URL ?? 'https://d1yvm1htsd670r.cloudfront.net';
   if (imagePath.startsWith('http')) return imagePath;
   const cleanPath = imagePath.startsWith('/') ? imagePath : `/${imagePath}`;
   return `${baseUrl}${cleanPath}`;
@@ -104,3 +104,4 @@ export function truncate(str: string, maxLength: number): string {
   if (str.length <= maxLength) return str;
   return `${str.slice(0, maxLength - 1)}…`;
 }
+

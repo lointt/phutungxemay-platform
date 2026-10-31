@@ -49,14 +49,14 @@ export default function CustomerOrdersPage() {
               name: 'Bố thắng đĩa trước Elig EM050',
               price: 125000,
               quantity: 1,
-              image_url: 'https://d1ksuy3hfmko20.cloudfront.net/images/elig-em050.jpg',
+              image_url: 'https://d1yvm1htsd670r.cloudfront.net/images/elig-em050.jpg',
             },
             {
               product_id: 'PROD_OIL_003',
               name: 'Dầu nhớt Motul 7100 4T 10W40 1L',
               price: 265000,
               quantity: 2,
-              image_url: 'https://d1ksuy3hfmko20.cloudfront.net/images/motul-7100-10w40.jpg',
+              image_url: 'https://d1yvm1htsd670r.cloudfront.net/images/motul-7100-10w40.jpg',
             },
           ],
           shipping_address: {
@@ -323,3 +323,4 @@ function StatusBadge({ status }: { status: OrderStatus }) {
       return null;
   }
 }
+

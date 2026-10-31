@@ -21,7 +21,7 @@ export const metadata: Metadata = {
   description:
     "Mua phụ tùng xe máy chính hãng giá tốt. Tư vấn kỹ thuật bởi Kỹ Sư AI. Giao hàng toàn quốc.",
   metadataBase: new URL(
-    process.env.NEXT_PUBLIC_CDN_BASE_URL ?? "https://d1ksuy3hfmko20.cloudfront.net"
+    process.env.NEXT_PUBLIC_CDN_BASE_URL ?? "https://d1yvm1htsd670r.cloudfront.net"
   ),
 };
 

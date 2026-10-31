@@ -85,7 +85,7 @@ export default function AdminProductsPage() {
     setCategory(CATEGORIES[0]);
     setPrice(150000);
     setStock(50);
-    setImageUrl('https://d1ksuy3hfmko20.cloudfront.net/images/elig-em050.jpg');
+    setImageUrl('https://d1yvm1htsd670r.cloudfront.net/images/elig-em050.jpg');
     setDescription('Phụ tùng chính hãng chất lượng cao, chịu nhiệt và độ bền vượt trội.');
     setCompatibleModels('Honda Wave, Yamaha Exciter 150, Winner X');
     setIsModalOpen(true);
@@ -158,8 +158,8 @@ export default function AdminProductsPage() {
       category: category,
       price: Number(price),
       stock: Number(stock),
-      image_url: imageUrl.trim() || 'https://d1ksuy3hfmko20.cloudfront.net/images/elig-em050.jpg',
-      image_urls: imageUrl.trim() ? [imageUrl.trim()] : ['https://d1ksuy3hfmko20.cloudfront.net/images/elig-em050.jpg'],
+      image_url: imageUrl.trim() || 'https://d1yvm1htsd670r.cloudfront.net/images/elig-em050.jpg',
+      image_urls: imageUrl.trim() ? [imageUrl.trim()] : ['https://d1yvm1htsd670r.cloudfront.net/images/elig-em050.jpg'],
       description: description.trim(),
       compatible_models: models,
       status: 'ACTIVE',
@@ -559,7 +559,7 @@ export default function AdminProductsPage() {
                 <label className="block font-bold text-gray-700 mb-1">Đường dẫn hình ảnh (URL)</label>
                 <input
                   type="text"
-                  placeholder="https://d1ksuy3hfmko20.cloudfront.net/images/..."
+                  placeholder="https://d1yvm1htsd670r.cloudfront.net/images/..."
                   value={imageUrl}
                   onChange={(e) => setImageUrl(e.target.value)}
                   className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-400 font-mono text-xs"
@@ -610,3 +610,4 @@ export default function AdminProductsPage() {
     </div>
   );
 }
+

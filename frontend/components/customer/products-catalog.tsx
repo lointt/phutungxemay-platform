@@ -123,7 +123,7 @@ export function ProductsCatalog({ initialProducts }: ProductsCatalogProps) {
     }
     let cancelled = false;
     setIsFetchingClient(true);
-    const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'https://d1ksuy3hfmko20.cloudfront.net';
+    const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'https://d1yvm1htsd670r.cloudfront.net';
     fetch(`${apiBase}/api/products`)
       .then((r) => r.json())
       .then((data: { items?: Record<string, unknown>[] }) => {
@@ -1361,3 +1361,4 @@ export function ProductsCatalog({ initialProducts }: ProductsCatalogProps) {
     </div>
   );
 }
+

@@ -14,8 +14,8 @@ import {
 
 // ─── Pool Configuration ───────────────────────────────────────────────────────
 
-const USER_POOL_ID = process.env.NEXT_PUBLIC_COGNITO_USER_POOL_ID ?? 'ap-southeast-1_ecJz9V8QY';
-const CLIENT_ID = process.env.NEXT_PUBLIC_COGNITO_CLIENT_ID ?? '7rbclbi7o4vun1dpe6k2glmel7';
+const USER_POOL_ID = process.env.NEXT_PUBLIC_COGNITO_USER_POOL_ID ?? 'ap-southeast-1_kYEaF7YJn';
+const CLIENT_ID = process.env.NEXT_PUBLIC_COGNITO_CLIENT_ID ?? '4q8j12ruf2pcvu723ssh2j15p3';
 
 const userPool = new CognitoUserPool({
   UserPoolId: USER_POOL_ID,

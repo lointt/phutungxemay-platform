@@ -71,7 +71,7 @@ function OrderTrackingContent({ params }: PageProps) {
               name: 'Bố thắng đĩa trước Elig EM050',
               price: 125000,
               quantity: 1,
-              image_url: 'https://d1ksuy3hfmko20.cloudfront.net/images/elig-em050.jpg',
+              image_url: 'https://d1yvm1htsd670r.cloudfront.net/images/elig-em050.jpg',
             },
           ],
           shipping_address: {
@@ -289,3 +289,4 @@ function OrderTrackingContent({ params }: PageProps) {
     </div>
   );
 }
+

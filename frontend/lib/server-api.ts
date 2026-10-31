@@ -11,7 +11,7 @@ if (typeof net.setDefaultAutoSelectFamily === 'function') {
   net.setDefaultAutoSelectFamily(false);
 }
 
-const rawApiBase = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'https://d1ksuy3hfmko20.cloudfront.net';
+const rawApiBase = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'https://d1yvm1htsd670r.cloudfront.net';
 const API_BASE = rawApiBase.replace(/\/api\/?$/, '');
 
 // Bộ nhớ đệm dự phòng trên Server để chống rớt mạng tạm thời

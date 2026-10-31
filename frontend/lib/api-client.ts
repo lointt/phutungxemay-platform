@@ -5,7 +5,7 @@
 import Cookies from 'js-cookie';
 import { getCurrentSession } from '@/lib/cognito';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'https://d1ksuy3hfmko20.cloudfront.net';
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'https://d1yvm1htsd670r.cloudfront.net';
 
 /** Kiểm tra xem JWT Token có bị hết hạn hay không */
 export function isTokenExpired(token: string | null | undefined): boolean {

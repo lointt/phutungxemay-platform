@@ -6,7 +6,7 @@
 import { NextResponse } from 'next/server';
 import { getServerAdminToken } from '@/lib/server-admin-store';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'https://d1ksuy3hfmko20.cloudfront.net';
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'https://d1yvm1htsd670r.cloudfront.net';
 
 interface DeductItem {
   product_id: string;
@@ -102,3 +102,4 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });
   }
 }
+
