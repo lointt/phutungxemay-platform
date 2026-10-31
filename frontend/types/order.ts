@@ -15,11 +15,14 @@ export type PaymentStatus = 'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED';
 
 export interface ShippingAddress {
   full_name: string;
+  email?: string;
   phone: string;
   street: string;       // Số nhà, tên đường
   ward: string;         // Phường / Xã
   district: string;     // Quận / Huyện
   province: string;     // Tỉnh / Thành phố
+  recipient_name?: string;
+  address?: string;
 }
 
 export interface OrderItem {

@@ -88,8 +88,10 @@ export default function CheckoutPage() {
     isOrderPlacedRef.current = true;
 
     const fullAddrString = `${street.trim()}, ${ward.trim() || ''}, ${district.trim()}, ${province.trim() || 'TP. Hồ Chí Minh'}`;
+    const customerEmail = email.trim() || user?.email || '';
     const shippingAddress: ShippingAddress = {
       full_name: fullName.trim(),
+      email: customerEmail,
       phone: phone.trim(),
       street: street.trim(),
       ward: ward.trim() || 'Phường trung tâm',
@@ -99,12 +101,14 @@ export default function CheckoutPage() {
 
     const shippingAddressPayload = {
       ...shippingAddress,
+      email: customerEmail,
       recipient_name: fullName.trim(),
       address: fullAddrString,
     };
 
     const orderPayload = {
       shipping_address: shippingAddressPayload,
+      customer_email: customerEmail,
       payment_method: paymentMethod,
       notes: notes.trim() || undefined,
       items: items.map((i) => ({
@@ -178,6 +182,7 @@ export default function CheckoutPage() {
         '/api/orders',
         {
           shipping_address: shippingAddressPayload,
+          customer_email: customerEmail,
           payment_method: paymentMethod,
           shipping_fee: shippingFee,
           subtotal: subtotal,

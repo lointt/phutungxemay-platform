@@ -133,6 +133,16 @@ def lambda_handler(event, context):
             if not shipping_address:
                 return build_response(400, {"message": "Thông tin shipping_address là bắt buộc."})
 
+            claims = event.get('requestContext', {}).get('authorizer', {}).get('claims', {})
+            customer_email = (
+                body.get('customer_email')
+                or shipping_address.get('email')
+                or claims.get('email')
+                or ''
+            )
+            if customer_email and not shipping_address.get('email'):
+                shipping_address['email'] = customer_email
+
             # Lấy giỏ hàng của user
             cart_resp = carts_table.get_item(Key={'CartID': user_id})
             cart = cart_resp.get('Item')
@@ -156,6 +166,7 @@ def lambda_handler(event, context):
                 "order_id": new_order_id,
                 "UserID": user_id,
                 "user_id": user_id,
+                "customer_email": customer_email,
                 "items": items,
                 "total_amount": total_amount,
                 "shipping_fee": shipping_fee,
@@ -199,6 +210,7 @@ def lambda_handler(event, context):
                 "order_id": new_order_id,
                 "OrderID": new_order_id,
                 "user_id": user_id,
+                "customer_email": customer_email,
                 "items": items,
                 "total_amount": total_amount,
                 "shipping_fee": shipping_fee,
