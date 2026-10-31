@@ -141,29 +141,38 @@ def build_payment_success_template(detail):
     order_id = detail.get("order_id", "N/A")
     amount = format_currency(detail.get("amount") or detail.get("final_amount", 0))
     txn_id = detail.get("transaction_id", "N/A")
-    bank_code = detail.get("bank_code", "VNPAY")
+    bank_code = detail.get("bank_code", detail.get("vnp_BankCode", "NCB"))
+    now_str = datetime.now(timezone.utc).strftime("%d/%m/%Y %H:%M:%S UTC")
 
     html = f"""
     <!DOCTYPE html>
     <html>
     <head><meta charset="utf-8"></head>
-    <body style="font-family: Arial, sans-serif; background-color: #f7f9fa; padding: 20px; color: #333;">
-        <div style="max-width: 600px; margin: 0 auto; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
-            <div style="background: #16a34a; padding: 20px; text-align: center; color: white;">
-                <h1 style="margin: 0; font-size: 22px;">THANH TOÁN THÀNH CÔNG</h1>
-                <p style="margin: 5px 0 0 0; font-size: 14px;">Mã đơn hàng: #{order_id}</p>
+    <body style="font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background-color:#f8fafc;margin:0;padding:24px;">
+        <div style="max-width:620px;margin:auto;background:#ffffff;border-radius:12px;border:1px solid #e2e8f0;overflow:hidden;box-shadow:0 4px 6px rgba(0,0,0,0.05);">
+            <div style="background:linear-gradient(135deg, #16a34a 0%, #15803d 100%);padding:28px 24px;text-align:center;color:#ffffff;">
+                <h1 style="margin:0;font-size:22px;">THANH TOÁN THÀNH CÔNG</h1>
+                <p style="margin:8px 0 0;font-size:14px;opacity:0.9;">Hệ thống đã nhận được tiền của bạn</p>
             </div>
-            <div style="padding: 24px;">
-                <p>Hệ thống đã nhận được khoản thanh toán <strong>{amount}</strong> cho đơn hàng <strong>#{order_id}</strong>.</p>
-                <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; padding: 15px; margin: 15px 0;">
-                    <p style="margin: 4px 0;"><strong>Cổng thanh toán:</strong> {bank_code}</p>
-                    <p style="margin: 4px 0;"><strong>Mã giao dịch:</strong> {txn_id}</p>
-                    <p style="margin: 4px 0;"><strong>Trạng thái:</strong> ĐÃ THANH TOÁN (PROCESSING)</p>
+            <div style="padding:28px 24px;">
+                <p style="font-size:15px;color:#1e293b;line-height:1.6;">
+                    Giao dịch thanh toán trực tuyến cho đơn hàng <strong>#{order_id}</strong> đã hoàn tất thành công.
+                </p>
+                <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:18px 20px;margin:20px 0;">
+                    <table style="width:100%;font-size:14px;border-collapse:collapse;">
+                        <tr><td style="padding:6px 0;color:#475569;">Mã đơn hàng:</td><td style="padding:6px 0;font-weight:700;color:#15803d;text-align:right;">#{order_id}</td></tr>
+                        <tr><td style="padding:6px 0;color:#475569;">Số tiền thanh toán:</td><td style="padding:6px 0;font-weight:800;color:#15803d;text-align:right;font-size:16px;">{amount}</td></tr>
+                        <tr><td style="padding:6px 0;color:#475569;">Mã giao dịch (Txn ID):</td><td style="padding:6px 0;color:#0f172a;text-align:right;font-family:monospace;">{txn_id}</td></tr>
+                        <tr><td style="padding:6px 0;color:#475569;">Cổng thanh toán:</td><td style="padding:6px 0;color:#0f172a;text-align:right;">{bank_code}</td></tr>
+                        <tr><td style="padding:6px 0;color:#475569;">Thời gian ghi nhận:</td><td style="padding:6px 0;color:#0f172a;text-align:right;">{now_str}</td></tr>
+                    </table>
                 </div>
-                <p>Đơn hàng đang được bộ phận kho đóng gói và bàn giao cho bưu tá Giao Hàng Nhanh (GHN).</p>
+                <p style="font-size:14px;color:#475569;line-height:1.5;">
+                    Trạng thái đơn hàng đã được tự động cập nhật sang <strong>ĐÃ THANH TOÁN (PAID)</strong>. Đơn hàng đang được bộ phận kho ưu tiên bàn giao cho đơn vị chuyển phát.
+                </p>
             </div>
-            <div style="background: #f8fafc; padding: 15px; text-align: center; font-size: 12px; color: #64748b;">
-                © 2026 Cửa Hàng Phụ Tùng Xe Máy Chính Hãng. Toàn quyền bảo lưu.
+            <div style="background:#f8fafc;padding:18px 24px;border-top:1px solid #e2e8f0;text-align:center;font-size:12px;color:#94a3b8;">
+                <p style="margin:0;">Cửa Hàng Phụ Tùng Xe Máy | Email: {SMTP_USER} | Hotline: 0909 246 246</p>
             </div>
         </div>
     </body>

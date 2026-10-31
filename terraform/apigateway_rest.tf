@@ -284,6 +284,53 @@ resource "aws_lambda_permission" "apigw_payment" {
 }
 
 # ==============================================================================
+# ROUTE 5B: /payments & /payments/{proxy+} -> PaymentWebhookHandler (Alias)
+# ==============================================================================
+resource "aws_api_gateway_resource" "payments_alias" {
+  rest_api_id = aws_api_gateway_rest_api.rest_api.id
+  parent_id   = aws_api_gateway_rest_api.rest_api.root_resource_id
+  path_part   = "payments"
+}
+
+resource "aws_api_gateway_method" "payments_alias_any" {
+  rest_api_id   = aws_api_gateway_rest_api.rest_api.id
+  resource_id   = aws_api_gateway_resource.payments_alias.id
+  http_method   = "ANY"
+  authorization = "NONE"
+}
+
+resource "aws_api_gateway_integration" "payments_alias_integration" {
+  rest_api_id             = aws_api_gateway_rest_api.rest_api.id
+  resource_id             = aws_api_gateway_resource.payments_alias.id
+  http_method             = aws_api_gateway_method.payments_alias_any.http_method
+  integration_http_method = "POST"
+  type                    = "AWS_PROXY"
+  uri                     = aws_lambda_function.payment_webhook.invoke_arn
+}
+
+resource "aws_api_gateway_resource" "payments_alias_proxy" {
+  rest_api_id = aws_api_gateway_rest_api.rest_api.id
+  parent_id   = aws_api_gateway_resource.payments_alias.id
+  path_part   = "{proxy+}"
+}
+
+resource "aws_api_gateway_method" "payments_alias_proxy_any" {
+  rest_api_id   = aws_api_gateway_rest_api.rest_api.id
+  resource_id   = aws_api_gateway_resource.payments_alias_proxy.id
+  http_method   = "ANY"
+  authorization = "NONE"
+}
+
+resource "aws_api_gateway_integration" "payments_alias_proxy_integration" {
+  rest_api_id             = aws_api_gateway_rest_api.rest_api.id
+  resource_id             = aws_api_gateway_resource.payments_alias_proxy.id
+  http_method             = aws_api_gateway_method.payments_alias_proxy_any.http_method
+  integration_http_method = "POST"
+  type                    = "AWS_PROXY"
+  uri                     = aws_lambda_function.payment_webhook.invoke_arn
+}
+
+# ==============================================================================
 # DEPLOYMENT & STAGE
 # ==============================================================================
 resource "aws_api_gateway_deployment" "rest_deployment" {
@@ -298,7 +345,9 @@ resource "aws_api_gateway_deployment" "rest_deployment" {
     aws_api_gateway_integration.users_integration,
     aws_api_gateway_integration.users_proxy_integration,
     aws_api_gateway_integration.payment_integration,
-    aws_api_gateway_integration.payment_proxy_integration
+    aws_api_gateway_integration.payment_proxy_integration,
+    aws_api_gateway_integration.payments_alias_integration,
+    aws_api_gateway_integration.payments_alias_proxy_integration
   ]
 
   lifecycle {

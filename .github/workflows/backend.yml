@@ -62,7 +62,7 @@ jobs:
             --zip-file fileb://order.zip
           aws lambda update-function-configuration \
             --function-name OrderServiceHandler-${{ vars.AWS_ENVIRONMENT_TITLE || secrets.AWS_ENVIRONMENT_TITLE || 'Replica' }} \
-            --environment "Variables={ORDERS_TABLE=Orders_${{ vars.AWS_ENVIRONMENT_TITLE || secrets.AWS_ENVIRONMENT_TITLE || 'Replica' }},CARTS_TABLE=Carts_${{ vars.AWS_ENVIRONMENT_TITLE || secrets.AWS_ENVIRONMENT_TITLE || 'Replica' }},PRODUCTS_TABLE=Products_${{ vars.AWS_ENVIRONMENT_TITLE || secrets.AWS_ENVIRONMENT_TITLE || 'Replica' }},EVENT_BUS_NAME=ecommerce-event-bus-${{ vars.AWS_ENVIRONMENT_TITLE || secrets.AWS_ENVIRONMENT_TITLE || 'replica' }},VNPAY_RETURN_URL=${{ vars.NEXT_PUBLIC_CDN_BASE_URL || secrets.NEXT_PUBLIC_CDN_BASE_URL }}/order-success,VNPAY_TMN_CODE=${{ vars.VNPAY_TMN_CODE || secrets.VNPAY_TMN_CODE }},VNPAY_HASH_SECRET=${{ secrets.VNPAY_HASH_SECRET }},VNPAY_URL=${{ vars.VNPAY_URL || 'https://sandbox.vnpayment.vn/paymentv2/vpcpay.html' }}}"
+            --environment "Variables={ORDERS_TABLE=Orders_${{ vars.AWS_ENVIRONMENT_TITLE || secrets.AWS_ENVIRONMENT_TITLE || 'Replica' }},CARTS_TABLE=Carts_${{ vars.AWS_ENVIRONMENT_TITLE || secrets.AWS_ENVIRONMENT_TITLE || 'Replica' }},PRODUCTS_TABLE=Products_${{ vars.AWS_ENVIRONMENT_TITLE || secrets.AWS_ENVIRONMENT_TITLE || 'Replica' }},EVENT_BUS_NAME=${{ vars.EVENT_BUS_NAME || 'ecommerce-event-bus-replica' }},VNPAY_RETURN_URL=${{ vars.NEXT_PUBLIC_CDN_BASE_URL || secrets.NEXT_PUBLIC_CDN_BASE_URL }}/order-success,VNPAY_TMN_CODE=${{ vars.VNPAY_TMN_CODE || secrets.VNPAY_TMN_CODE }},VNPAY_HASH_SECRET=${{ secrets.VNPAY_HASH_SECRET }},VNPAY_URL=${{ vars.VNPAY_URL || 'https://sandbox.vnpayment.vn/paymentv2/vpcpay.html' }}}"
           cd ../../..
 
       - name: 📦 Package & Deploy PaymentWebhookHandler
@@ -74,7 +74,7 @@ jobs:
             --zip-file fileb://payment.zip
           aws lambda update-function-configuration \
             --function-name PaymentWebhookHandler-${{ vars.AWS_ENVIRONMENT_TITLE || secrets.AWS_ENVIRONMENT_TITLE || 'Replica' }} \
-            --environment "Variables={ORDERS_TABLE=Orders_${{ vars.AWS_ENVIRONMENT_TITLE || secrets.AWS_ENVIRONMENT_TITLE || 'Replica' }},EVENT_BUS_NAME=ecommerce-event-bus-${{ vars.AWS_ENVIRONMENT_TITLE || secrets.AWS_ENVIRONMENT_TITLE || 'replica' }},VNPAY_HASH_SECRET=${{ secrets.VNPAY_HASH_SECRET }}}"
+            --environment "Variables={ORDERS_TABLE=Orders_${{ vars.AWS_ENVIRONMENT_TITLE || secrets.AWS_ENVIRONMENT_TITLE || 'Replica' }},EVENT_BUS_NAME=${{ vars.EVENT_BUS_NAME || 'ecommerce-event-bus-replica' }},VNPAY_HASH_SECRET=${{ secrets.VNPAY_HASH_SECRET }}}"
           cd ../../..
 
       - name: 📦 Package & Deploy UserProfileHandler
@@ -104,7 +104,7 @@ jobs:
             --zip-file fileb://shipping.zip
           aws lambda update-function-configuration \
             --function-name ShippingWorker-${{ vars.AWS_ENVIRONMENT_TITLE || secrets.AWS_ENVIRONMENT_TITLE || 'Replica' }} \
-            --environment "Variables={ORDERS_TABLE=Orders_${{ vars.AWS_ENVIRONMENT_TITLE || secrets.AWS_ENVIRONMENT_TITLE || 'Replica' }},EVENT_BUS_NAME=ecommerce-event-bus-${{ vars.AWS_ENVIRONMENT_TITLE || secrets.AWS_ENVIRONMENT_TITLE || 'replica' }},GHN_API_URL=${{ vars.GHN_API_URL || 'https://dev-online-gateway.ghn.vn/shiip/public-api/v2/shipping-order/create' }},GHN_API_TOKEN=${{ secrets.GHN_API_TOKEN }},GHN_SHOP_ID=${{ vars.GHN_SHOP_ID || secrets.GHN_SHOP_ID }},SHIPPING_PARTNER=Giao Hàng Nhanh (GHN)}"
+            --environment "Variables={ORDERS_TABLE=Orders_${{ vars.AWS_ENVIRONMENT_TITLE || secrets.AWS_ENVIRONMENT_TITLE || 'Replica' }},EVENT_BUS_NAME=${{ vars.EVENT_BUS_NAME || 'ecommerce-event-bus-replica' }},GHN_API_URL=${{ vars.GHN_API_URL || 'https://dev-online-gateway.ghn.vn/shiip/public-api/v2/shipping-order/create' }},GHN_API_TOKEN=${{ secrets.GHN_API_TOKEN }},GHN_SHOP_ID=${{ vars.GHN_SHOP_ID || secrets.GHN_SHOP_ID }},SHIPPING_PARTNER=Giao Hàng Nhanh (GHN)}"
           cd ../../..
 
       - name: 📦 Package & Deploy NotificationWorker (Gmail SMTP)
