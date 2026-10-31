@@ -17,6 +17,7 @@ jobs:
   build-and-deploy:
     name: Build & Deploy Next.js SSR (OpenNext + S3 + Lambda)
     runs-on: ubuntu-latest
+    environment: replica
 
     defaults:
       run:
@@ -38,7 +39,7 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_REGION || 'ap-southeast-1' }}
+          aws-region: ${{ vars.AWS_REGION || secrets.AWS_REGION || 'ap-southeast-1' }}
 
       - name: 📦 Install Dependencies
         run: npm ci
@@ -48,21 +49,21 @@ jobs:
 
       - name: 🏗️ Build Application with OpenNext
         env:
-          NEXT_PUBLIC_CDN_BASE_URL: ${{ secrets.NEXT_PUBLIC_CDN_BASE_URL }}
-          NEXT_PUBLIC_API_BASE_URL: ${{ secrets.NEXT_PUBLIC_API_BASE_URL }}
-          NEXT_PUBLIC_COGNITO_USER_POOL_ID: ${{ secrets.NEXT_PUBLIC_COGNITO_USER_POOL_ID }}
-          NEXT_PUBLIC_COGNITO_CLIENT_ID: ${{ secrets.NEXT_PUBLIC_COGNITO_CLIENT_ID }}
-          NEXT_PUBLIC_WEBSOCKET_URL: ${{ secrets.NEXT_PUBLIC_WEBSOCKET_URL }}
+          NEXT_PUBLIC_CDN_BASE_URL: ${{ vars.NEXT_PUBLIC_CDN_BASE_URL || secrets.NEXT_PUBLIC_CDN_BASE_URL }}
+          NEXT_PUBLIC_API_BASE_URL: ${{ vars.NEXT_PUBLIC_API_BASE_URL || secrets.NEXT_PUBLIC_API_BASE_URL }}
+          NEXT_PUBLIC_COGNITO_USER_POOL_ID: ${{ vars.NEXT_PUBLIC_COGNITO_USER_POOL_ID || secrets.NEXT_PUBLIC_COGNITO_USER_POOL_ID }}
+          NEXT_PUBLIC_COGNITO_CLIENT_ID: ${{ vars.NEXT_PUBLIC_COGNITO_CLIENT_ID || secrets.NEXT_PUBLIC_COGNITO_CLIENT_ID }}
+          NEXT_PUBLIC_WEBSOCKET_URL: ${{ vars.NEXT_PUBLIC_WEBSOCKET_URL || secrets.NEXT_PUBLIC_WEBSOCKET_URL }}
         run: npm run build:open-next
 
       - name: ☁️ Sync Static Assets to S3
         run: |
-          aws s3 sync .open-next/assets s3://${{ secrets.AWS_S3_FRONTEND_BUCKET }} --delete
+          aws s3 sync .open-next/assets s3://${{ vars.AWS_S3_FRONTEND_BUCKET || secrets.AWS_S3_FRONTEND_BUCKET }} --delete
 
       - name: 🖼️ Sync Product Images to Dedicated S3 Bucket
         run: |
           if [ -d "public/images" ]; then
-            aws s3 sync public/images s3://${{ secrets.AWS_S3_IMAGES_BUCKET || 'phutungxemay-product-images-replica-2026' }}/images --cache-control "public, max-age=31536000, immutable"
+            aws s3 sync public/images s3://${{ vars.AWS_S3_IMAGES_BUCKET || secrets.AWS_S3_IMAGES_BUCKET }}/images --cache-control "public, max-age=31536000, immutable"
           fi
 
       - name: ⚡ Package & Update Lambda NextjsServerHandler
@@ -71,12 +72,12 @@ jobs:
           zip -rq ../../../../function.zip .
           cd ../../../..
           aws lambda update-function-code \
-            --function-name ${{ secrets.AWS_LAMBDA_SERVER_NAME }} \
+            --function-name ${{ vars.AWS_LAMBDA_SERVER_NAME || secrets.AWS_LAMBDA_SERVER_NAME }} \
             --zip-file fileb://function.zip
 
       - name: 🔄 Invalidate CloudFront Distribution Cache
         run: |
           aws cloudfront create-invalidation \
-            --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} \
+            --distribution-id ${{ vars.CLOUDFRONT_DISTRIBUTION_ID || secrets.CLOUDFRONT_DISTRIBUTION_ID }} \
             --paths "/*"
 

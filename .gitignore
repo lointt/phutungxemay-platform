@@ -47,6 +47,14 @@ yarn-error.log*
 .DS_Store
 Thumbs.db
 
+# Documentation, Diagrams & Personal Notes
+*.docx
+*.doc
+*.drawio.png
+
+# Local helper and debug scripts
+scripts/
+
 # Python bytecode & cache
 __pycache__/
 **/__pycache__/

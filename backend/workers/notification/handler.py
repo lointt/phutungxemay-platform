@@ -7,8 +7,8 @@ from datetime import datetime, timezone
 
 SMTP_SERVER = os.environ.get("SMTP_SERVER", "smtp.gmail.com")
 SMTP_PORT = int(os.environ.get("SMTP_PORT", 465))
-SMTP_USER = os.environ.get("SMTP_USER", "phutungxemay246@gmail.com")
-SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "vzjlptdpcbkdmjyv").replace(" ", "")
+SMTP_USER = os.environ.get("SMTP_USER", "")
+SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "").replace(" ", "")
 
 def format_currency(amount):
     """Format số tiền sang định dạng VND"""

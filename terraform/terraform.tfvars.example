@@ -1,5 +1,9 @@
-aws_region          = "ap-southeast-1"
-environment         = "replica"
-project_name        = "phutungxemay"
+# ==============================================================================
+# terraform.tfvars.example — Mẫu cấu hình hạ tầng AWS (IaC Pure Infrastructure)
+# ==============================================================================
+
+aws_region                 = "ap-southeast-1"
+environment                = "replica"
+project_name               = "phutungxemay"
 hosting_bucket_name        = "phutungxemay-frontend-replica-2026"
 product_images_bucket_name = "phutungxemay-product-images-replica-2026"

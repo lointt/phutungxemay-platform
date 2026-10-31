@@ -248,7 +248,7 @@ resource "aws_lambda_function" "order_service" {
   source_code_hash = data.archive_file.order_zip.output_base64sha256
 
   lifecycle {
-    ignore_changes = [filename, source_code_hash]
+    ignore_changes = [filename, source_code_hash, environment]
   }
 
   environment {
@@ -257,10 +257,6 @@ resource "aws_lambda_function" "order_service" {
       CARTS_TABLE       = aws_dynamodb_table.carts.name
       PRODUCTS_TABLE    = aws_dynamodb_table.products.name
       EVENT_BUS_NAME    = aws_cloudwatch_event_bus.ecommerce_bus.name
-      VNPAY_RETURN_URL  = "https://${aws_cloudfront_distribution.main.domain_name}/order-success"
-      VNPAY_HASH_SECRET = "PPRHCDSJLGCYANFCBNLCGCZXORZCOXXI"
-      VNPAY_TMN_CODE    = "17PKFAFO"
-      VNPAY_URL         = "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html"
     }
   }
 
@@ -282,14 +278,13 @@ resource "aws_lambda_function" "payment_webhook" {
   source_code_hash = data.archive_file.payment_zip.output_base64sha256
 
   lifecycle {
-    ignore_changes = [filename, source_code_hash]
+    ignore_changes = [filename, source_code_hash, environment]
   }
 
   environment {
     variables = {
       ORDERS_TABLE      = aws_dynamodb_table.orders.name
       EVENT_BUS_NAME    = aws_cloudwatch_event_bus.ecommerce_bus.name
-      VNPAY_HASH_SECRET = "PPRHCDSJLGCYANFCBNLCGCZXORZCOXXI"
     }
   }
 
@@ -376,16 +371,13 @@ resource "aws_lambda_function" "shipping_worker" {
   source_code_hash = data.archive_file.shipping_zip.output_base64sha256
 
   lifecycle {
-    ignore_changes = [filename, source_code_hash]
+    ignore_changes = [filename, source_code_hash, environment]
   }
 
   environment {
     variables = {
       ORDERS_TABLE     = aws_dynamodb_table.orders.name
       EVENT_BUS_NAME   = aws_cloudwatch_event_bus.ecommerce_bus.name
-      GHN_API_URL      = "https://dev-online-gateway.ghn.vn/shiip/public-api/v2/shipping-order/create"
-      GHN_API_TOKEN    = "b0ea8297-6801-4aa1-a811-5e21a5f7aa2d"
-      GHN_SHOP_ID      = "233963"
       SHIPPING_PARTNER = "Giao Hàng Nhanh (GHN)"
     }
   }
@@ -415,15 +407,13 @@ resource "aws_lambda_function" "notification_worker" {
   source_code_hash = data.archive_file.notification_zip.output_base64sha256
 
   lifecycle {
-    ignore_changes = [filename, source_code_hash]
+    ignore_changes = [filename, source_code_hash, environment]
   }
 
   environment {
     variables = {
-      SMTP_SERVER   = "smtp.gmail.com"
-      SMTP_PORT     = "465"
-      SMTP_USER     = "phutungxemay246@gmail.com"
-      SMTP_PASSWORD = "vzjlptdpcbkdmjyv"
+      SMTP_SERVER = "smtp.gmail.com"
+      SMTP_PORT   = "465"
     }
   }
 

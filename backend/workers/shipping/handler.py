@@ -13,8 +13,8 @@ from boto3.dynamodb.conditions import Key
 ORDERS_TABLE_NAME = os.environ.get('ORDERS_TABLE', 'Orders_Replica')
 SHIPPING_PARTNER = os.environ.get('SHIPPING_PARTNER', 'Giao Hàng Nhanh (GHN)')
 GHN_API_URL = os.environ.get('GHN_API_URL', 'https://dev-online-gateway.ghn.vn/shiip/public-api/v2/shipping-order/create')
-GHN_API_TOKEN = os.environ.get('GHN_API_TOKEN', 'b0ea8297-6801-4aa1-a811-5e21a5f7aa2d')
-GHN_SHOP_ID = os.environ.get('GHN_SHOP_ID', '233963')
+GHN_API_TOKEN = os.environ.get('GHN_API_TOKEN', '')
+GHN_SHOP_ID = os.environ.get('GHN_SHOP_ID', '')
 EVENT_BUS_NAME = os.environ.get('EVENT_BUS_NAME', 'ecommerce-event-bus-replica')
 
 dynamodb = boto3.resource('dynamodb')
