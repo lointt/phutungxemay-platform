@@ -76,30 +76,21 @@ resource "aws_apigatewayv2_route" "send_message_route" {
   target    = "integrations/${aws_apigatewayv2_integration.chat_receiver_integration.id}"
 }
 
-resource "aws_apigatewayv2_deployment" "chatbot_deployment" {
-  api_id = aws_apigatewayv2_api.chatbot_ws.id
+resource "aws_apigatewayv2_stage" "chatbot_dev_stage" {
+  api_id      = aws_apigatewayv2_api.chatbot_ws.id
+  name        = "dev"
+  auto_deploy = true
+
+  default_route_settings {
+    throttling_burst_limit = 20
+    throttling_rate_limit  = 10
+  }
 
   depends_on = [
     aws_apigatewayv2_route.connect_route,
     aws_apigatewayv2_route.disconnect_route,
     aws_apigatewayv2_route.send_message_route
   ]
-
-  lifecycle {
-    create_before_destroy = true
-  }
-}
-
-resource "aws_apigatewayv2_stage" "chatbot_dev_stage" {
-  api_id        = aws_apigatewayv2_api.chatbot_ws.id
-  name          = "dev"
-  deployment_id = aws_apigatewayv2_deployment.chatbot_deployment.id
-  auto_deploy   = true
-
-  default_route_settings {
-    throttling_burst_limit = 20
-    throttling_rate_limit  = 10
-  }
 }
 
 resource "aws_lambda_permission" "api_invoke_receiver" {
