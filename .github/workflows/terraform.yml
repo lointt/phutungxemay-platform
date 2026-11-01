@@ -1,0 +1,91 @@
+name: Terraform IaC CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'terraform/**'
+      - '.github/workflows/terraform.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'terraform/**'
+      - '.github/workflows/terraform.yml'
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Terraform Action to execute'
+        required: true
+        default: 'plan'
+        type: choice
+        options:
+          - 'plan'
+          - 'apply'
+          - 'validate_only'
+
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
+
+jobs:
+  terraform:
+    name: Terraform Validate, Plan & Apply
+    runs-on: ubuntu-latest
+    environment: replica
+
+    defaults:
+      run:
+        working-directory: terraform
+
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: ⚙️ Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: '1.9.5'
+          terraform_wrapper: false
+
+      - name: 🔐 Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ vars.AWS_REGION || secrets.AWS_REGION || 'ap-southeast-1' }}
+
+      - name: 🔍 Check Terraform Format
+        run: terraform fmt -check -diff || true
+
+      - name: 🚀 Terraform Init
+        run: |
+          if [ -n "${{ vars.AWS_S3_TFSTATE_BUCKET || secrets.AWS_S3_TFSTATE_BUCKET }}" ]; then
+            echo "Initializing with remote S3 backend..."
+            terraform init -input=false \
+              -backend-config="bucket=${{ vars.AWS_S3_TFSTATE_BUCKET || secrets.AWS_S3_TFSTATE_BUCKET }}" \
+              -backend-config="key=replica/terraform.tfstate" \
+              -backend-config="region=${{ vars.AWS_REGION || secrets.AWS_REGION || 'ap-southeast-1' }}"
+          else
+            echo "Initializing with local/default backend..."
+            terraform init -input=false
+          fi
+
+      - name: 📋 Terraform Validate
+        run: terraform validate -no-color
+
+      - name: 📊 Terraform Plan
+        if: github.event.inputs.action != 'validate_only'
+        id: plan
+        run: |
+          terraform plan -no-color -input=false -out=tfplan
+
+      - name: 🚀 Terraform Apply
+        if: |
+          (github.ref == 'refs/heads/main' && github.event_name == 'push') ||
+          (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'apply')
+        run: |
+          echo "Applying Terraform changes..."
+          terraform apply -auto-approve -input=false tfplan
