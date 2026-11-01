@@ -171,7 +171,23 @@ export default function CustomerOrdersPage() {
       setTimeout(() => setToastMessage(null), 3500);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Lỗi khi hủy đơn hàng';
-      alert(`Không thể hủy đơn hàng: ${msg}`);
+      // Nếu là đơn hàng tạm cũ hoặc đơn chỉ lưu trong trình duyệt (server trả 404 Không tìm thấy đơn hàng)
+      if (
+        msg.includes('Không tìm thấy') ||
+        msg.includes('404') ||
+        msg.includes('not found')
+      ) {
+        updateLocalOrderStatus(orderId, 'CANCELLED');
+        setOrders((prev) =>
+          prev.map((o) =>
+            o.order_id === orderId ? { ...o, order_status: 'CANCELLED' } : o,
+          ),
+        );
+        setToastMessage(`Đã hủy đơn hàng #${orderId} thành công!`);
+        setTimeout(() => setToastMessage(null), 3500);
+      } else {
+        alert(`Không thể hủy đơn hàng: ${msg}`);
+      }
     } finally {
       setCancellingId(null);
     }

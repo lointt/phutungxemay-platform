@@ -12,8 +12,6 @@ import Link from 'next/link';
 import {
   getStoredPolicies,
   savePolicy,
-  resetDefaultPolicies,
-  DEFAULT_STORE_POLICIES,
   type StorePolicy,
 } from '@/lib/policy-storage';
 import { formatDate } from '@/lib/utils';
@@ -22,7 +20,6 @@ export default function AdminPoliciesPage() {
   const [policies, setPolicies] = useState<StorePolicy[]>([]);
   const [selectedPolicy, setSelectedPolicy] = useState<StorePolicy | null>(null);
   const [isEditing, setIsEditing] = useState(false);
-  const [isSyncing, setIsSyncing] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Form state
@@ -99,32 +96,6 @@ export default function AdminPoliciesPage() {
     showToast(`✅ Đã lưu chính sách "${updated.title}" thành công!`);
   };
 
-  const handleImportDefaults = async () => {
-    if (confirm('Bạn có chắc chắn muốn nạp lại 5 tài liệu chính sách chuẩn (Đổi trả, Bảo hành, Vận chuyển, Hướng dẫn, FAQ)?')) {
-      const resetList = resetDefaultPolicies();
-      setPolicies(resetList);
-
-      try {
-        await fetch('/api/policies', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'seed_defaults' }),
-        });
-      } catch {}
-
-      showToast('📥 Đã Import thành công 5 chính sách chuẩn vào hệ thống!');
-    }
-  };
-
-  const handleSyncToRAG = async () => {
-    setIsSyncing(true);
-    // Giả lập kích hoạt luồng đồng bộ RAG CDC
-    setTimeout(() => {
-      setIsSyncing(false);
-      showToast('🚀 Đã kích hoạt đồng bộ dữ liệu vào S3 Vector KB (vectors/kb.json) cho Chatbot AI!');
-    }, 1500);
-  };
-
   return (
     <div className="space-y-6">
       {/* Toast Notification */}
@@ -150,21 +121,6 @@ export default function AdminPoliciesPage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5">
-            <button
-              onClick={handleImportDefaults}
-              className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer"
-            >
-              <span>📥</span> Import 5 chính sách chuẩn
-            </button>
-
-            <button
-              onClick={handleSyncToRAG}
-              disabled={isSyncing}
-              className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl transition-colors shadow-sm shadow-emerald-600/20 flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-            >
-              <span>{isSyncing ? '⏳' : '🔄'}</span> {isSyncing ? 'Đang đồng bộ...' : 'Đồng bộ Chatbot RAG'}
-            </button>
-
             <button
               onClick={handleOpenCreate}
               className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white font-bold text-xs rounded-xl transition-all shadow-md shadow-orange-500/20 flex items-center gap-1.5 cursor-pointer"

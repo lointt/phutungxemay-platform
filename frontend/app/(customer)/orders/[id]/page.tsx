@@ -53,13 +53,23 @@ function OrderTrackingContent({ params }: PageProps) {
 
     setIsCancelling(true);
     try {
-      await apiClient.put(`/api/orders/${order.order_id}`, { status: 'CANCELLED' });
+      await apiClient.put(`/api/orders/${order.order_id}`, { order_status: 'CANCELLED' });
       updateLocalOrderStatus(order.order_id, 'CANCELLED');
       setOrder((prev) => (prev ? { ...prev, order_status: 'CANCELLED' } : null));
       alert('Hủy đơn hàng thành công!');
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Có lỗi xảy ra khi hủy đơn hàng';
-      alert(`Không thể hủy đơn hàng: ${msg}`);
+      if (
+        msg.includes('Không tìm thấy') ||
+        msg.includes('404') ||
+        msg.includes('not found')
+      ) {
+        updateLocalOrderStatus(order.order_id, 'CANCELLED');
+        setOrder((prev) => (prev ? { ...prev, order_status: 'CANCELLED' } : null));
+        alert('Hủy đơn hàng thành công!');
+      } else {
+        alert(`Không thể hủy đơn hàng: ${msg}`);
+      }
     } finally {
       setIsCancelling(false);
     }

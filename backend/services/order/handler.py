@@ -275,7 +275,7 @@ def lambda_handler(event, context):
         # 4. PUT /orders/{id}: CẬP NHẬT HOẶC HỦY TRẠNG THÁI ĐƠN HÀNG
         elif http_method == 'PUT' and order_id:
             body = json.loads(event.get('body', '{}'))
-            new_status = body.get('order_status')
+            new_status = body.get('order_status') or body.get('status')
             tracking_number = body.get('tracking_number')
 
             query_resp = orders_table.query(
