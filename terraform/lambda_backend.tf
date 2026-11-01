@@ -92,6 +92,17 @@ resource "aws_iam_policy" "backend_permissions_policy" {
           aws_sqs_queue.shipping_queue.arn,
           aws_sqs_queue.notification_queue.arn
         ]
+      },
+      {
+        Sid      = "S3ProductImagesAccess"
+        Effect   = "Allow"
+        Action   = [
+          "s3:PutObject",
+          "s3:GetObject"
+        ]
+        Resource = [
+          "${aws_s3_bucket.product_images.arn}/*"
+        ]
       }
     ]
   })
@@ -198,7 +209,9 @@ resource "aws_lambda_function" "catalog_service" {
 
   environment {
     variables = {
-      PRODUCTS_TABLE = aws_dynamodb_table.products.name
+      PRODUCTS_TABLE        = aws_dynamodb_table.products.name
+      PRODUCT_IMAGES_BUCKET = aws_s3_bucket.product_images.bucket
+      CDN_DOMAIN            = aws_cloudfront_distribution.main.domain_name
     }
   }
 
@@ -342,7 +355,9 @@ resource "aws_lambda_function" "inventory_worker" {
 
   environment {
     variables = {
-      PRODUCTS_TABLE = aws_dynamodb_table.products.name
+      PRODUCTS_TABLE        = aws_dynamodb_table.products.name
+      PRODUCT_IMAGES_BUCKET = aws_s3_bucket.product_images.bucket
+      CDN_DOMAIN            = aws_cloudfront_distribution.main.domain_name
     }
   }
 

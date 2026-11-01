@@ -90,6 +90,19 @@ resource "aws_s3_bucket_public_access_block" "product_images" {
   restrict_public_buckets = true
 }
 
+# Cấu hình CORS cho phép Browser upload trực tiếp ảnh qua S3 Pre-signed URL
+resource "aws_s3_bucket_cors_configuration" "product_images" {
+  bucket = aws_s3_bucket.product_images.id
+
+  cors_rule {
+    allowed_headers = ["*"]
+    allowed_methods = ["PUT", "POST", "GET", "HEAD"]
+    allowed_origins = ["*"]
+    expose_headers  = ["ETag"]
+    max_age_seconds = 3000
+  }
+}
+
 # S3 Bucket Policy: Cho phép CloudFront Distribution OAC đọc ảnh sản phẩm
 resource "aws_s3_bucket_policy" "product_images" {
   bucket = aws_s3_bucket.product_images.id

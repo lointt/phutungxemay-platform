@@ -5,7 +5,7 @@
 // Hỗ trợ Thêm mới, Chỉnh sửa, Cập nhật tồn kho nhanh, Xóa
 // ============================================================
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import Image from 'next/image';
 import { getAdminCustomProducts, saveAdminProduct, deleteAdminProduct } from '@/lib/admin-storage';
 import apiClient from '@/lib/api-client';
@@ -46,6 +46,67 @@ export default function AdminProductsPage() {
   const [compatibleModels, setCompatibleModels] = useState('Yamaha Exciter 150, Honda Winner X');
   const [isSaving, setIsSaving] = useState(false);
 
+  // S3 Pre-signed URL Upload State
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleImageFile = async (file: File) => {
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setUploadError('Vui lòng chỉ chọn file hình ảnh (PNG, JPG, WEBP, GIF...).');
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      setUploadError('Dung lượng file tối đa là 10MB.');
+      return;
+    }
+
+    setIsUploadingImage(true);
+    setUploadError(null);
+
+    try {
+      // 1. Gọi backend Catalog API để lấy S3 Pre-signed URL
+      const data = await apiClient.post<{
+        upload_url: string;
+        public_url: string;
+        s3_key: string;
+      }>('/api/products/upload-url', {
+        file_name: file.name,
+        content_type: file.type || 'image/jpeg',
+      });
+
+      if (!data?.upload_url || !data?.public_url) {
+        throw new Error('Không nhận được S3 pre-signed URL từ máy chủ.');
+      }
+
+      // 2. Upload trực tiếp binary data sang S3 bucket
+      const uploadRes = await fetch(data.upload_url, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': file.type || 'image/jpeg',
+        },
+        body: file,
+      });
+
+      if (!uploadRes.ok) {
+        throw new Error(`Upload lên Amazon S3 thất bại (HTTP ${uploadRes.status})`);
+      }
+
+      // 3. Gán CloudFront CDN URL vào form
+      setImageUrl(data.public_url);
+    } catch (err: unknown) {
+      console.error('Lỗi khi tải ảnh lên S3:', err);
+      const msg = err instanceof Error ? err.message : 'Có lỗi xảy ra khi tải ảnh lên Amazon S3';
+      setUploadError(msg);
+    } finally {
+      setIsUploadingImage(false);
+    }
+  };
+
   useEffect(() => {
     async function fetchProducts() {
       setIsLoading(true);
@@ -85,7 +146,8 @@ export default function AdminProductsPage() {
     setCategory(CATEGORIES[0]);
     setPrice(150000);
     setStock(50);
-    setImageUrl('https://d1yvm1htsd670r.cloudfront.net/images/elig-em050.jpg');
+    setImageUrl('');
+    setUploadError(null);
     setDescription('Phụ tùng chính hãng chất lượng cao, chịu nhiệt và độ bền vượt trội.');
     setCompatibleModels('Honda Wave, Yamaha Exciter 150, Winner X');
     setIsModalOpen(true);
@@ -100,6 +162,7 @@ export default function AdminProductsPage() {
     setPrice(p.price);
     setStock(p.stock);
     setImageUrl(p.image_urls?.[0] || p.image_url || '');
+    setUploadError(null);
     setDescription(p.description || '');
     setCompatibleModels((p.compatible_models || []).join(', '));
     setIsModalOpen(true);
@@ -555,15 +618,126 @@ export default function AdminProductsPage() {
                 </div>
               </div>
 
-              <div>
-                <label className="block font-bold text-gray-700 mb-1">Đường dẫn hình ảnh (URL)</label>
+              {/* VÙNG TẢI ẢNH LÊN S3 QUA PRE-SIGNED URL */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="block font-bold text-gray-700 text-xs">
+                    Hình ảnh sản phẩm <span className="text-gray-400 font-normal">(Tải trực tiếp lên Amazon S3)</span>
+                  </label>
+                  {imageUrl && (
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="text-[11px] text-orange-600 hover:text-orange-700 font-semibold cursor-pointer"
+                    >
+                      Đổi ảnh khác
+                    </button>
+                  )}
+                </div>
+
                 <input
-                  type="text"
-                  placeholder="https://d1yvm1htsd670r.cloudfront.net/images/..."
-                  value={imageUrl}
-                  onChange={(e) => setImageUrl(e.target.value)}
-                  className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-400 font-mono text-xs"
+                  type="file"
+                  ref={fileInputRef}
+                  accept="image/*"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) void handleImageFile(f);
+                  }}
+                  className="hidden"
                 />
+
+                {/* Khung Preview nếu đã có ảnh */}
+                {imageUrl ? (
+                  <div className="relative border border-gray-200 rounded-xl p-3 bg-gray-50 flex items-center gap-3">
+                    <div className="w-16 h-16 rounded-lg bg-white border border-gray-200 overflow-hidden relative flex-shrink-0 shadow-xs">
+                      <Image
+                        src={getImageUrl(imageUrl)}
+                        alt="Product Preview"
+                        fill
+                        className="object-cover"
+                        sizes="64px"
+                        unoptimized
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="inline-block w-2 h-2 rounded-full bg-emerald-500"></span>
+                        <span className="text-[11px] font-bold text-gray-800">Ảnh đã lưu trữ trên Amazon S3</span>
+                      </div>
+                      <p className="text-[10px] text-gray-400 font-mono truncate mt-0.5" title={imageUrl}>
+                        {imageUrl}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setImageUrl('')}
+                      className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer text-sm font-bold"
+                      title="Xóa ảnh này"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ) : (
+                  /* Vùng kéo thả khi chưa có ảnh */
+                  <div
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      setIsDragging(true);
+                    }}
+                    onDragLeave={() => setIsDragging(false)}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      setIsDragging(false);
+                      const f = e.dataTransfer.files?.[0];
+                      if (f) void handleImageFile(f);
+                    }}
+                    onClick={() => !isUploadingImage && fileInputRef.current?.click()}
+                    className={`border-2 border-dashed rounded-xl p-4 text-center cursor-pointer transition-all ${
+                      isDragging
+                        ? 'border-orange-500 bg-orange-50/50'
+                        : 'border-gray-200 hover:border-orange-400 hover:bg-gray-50/50'
+                    }`}
+                  >
+                    {isUploadingImage ? (
+                      <div className="flex flex-col items-center justify-center py-2 space-y-2">
+                        <div className="w-6 h-6 border-2 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
+                        <p className="text-xs font-bold text-orange-600">Đang tải ảnh trực tiếp lên Amazon S3...</p>
+                        <p className="text-[11px] text-gray-400">Vui lòng đợi vài giây</p>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center py-2 space-y-1">
+                        <div className="w-10 h-10 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center text-lg mb-1">
+                          ☁️
+                        </div>
+                        <p className="text-xs font-bold text-gray-700">
+                          Kéo thả ảnh vào đây, hoặc <span className="text-orange-600 underline">bấm để chọn ảnh</span>
+                        </p>
+                        <p className="text-[11px] text-gray-400">Hỗ trợ PNG, JPG, WEBP tối đa 10MB (S3 + CloudFront CDN)</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Báo lỗi nếu có */}
+                {uploadError && (
+                  <p className="text-[11px] text-red-600 flex items-center gap-1 mt-1">
+                    <span>⚠️</span> {uploadError}
+                  </p>
+                )}
+
+                {/* Nhập URL thủ công (fallback) */}
+                <div className="pt-0.5">
+                  <details className="text-[11px] text-gray-500 cursor-pointer">
+                    <summary className="hover:text-gray-700 select-none">Nhập hoặc sửa link URL ảnh thủ công (tùy chọn)</summary>
+                    <input
+                      type="text"
+                      placeholder="https://d1yvm1htsd670r.cloudfront.net/images/..."
+                      value={imageUrl}
+                      onChange={(e) => setImageUrl(e.target.value)}
+                      className="w-full mt-1.5 px-3 py-1.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-orange-400 font-mono text-[11px]"
+                    />
+                  </details>
+                </div>
               </div>
 
               <div>
