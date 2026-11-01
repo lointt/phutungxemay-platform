@@ -70,6 +70,8 @@ export function CustomerFooter() {
               {[
                 { label: 'Tra cứu đơn hàng', href: '/account/orders' },
                 { label: 'Chính sách đổi trả', href: '/chinh-sach-doi-tra' },
+                { label: 'Chính sách bảo hành', href: '/chinh-sach-bao-hanh' },
+                { label: 'Chính sách vận chuyển', href: '/chinh-sach-van-chuyen' },
                 { label: 'Hướng dẫn mua hàng', href: '/huong-dan' },
                 { label: 'Câu hỏi thường gặp', href: '/faq' },
               ].map((item) => (

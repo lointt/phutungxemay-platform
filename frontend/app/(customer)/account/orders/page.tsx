@@ -2,6 +2,7 @@
 
 // ============================================================
 // app/(customer)/account/orders/page.tsx — Đơn hàng của tôi
+// Đồng bộ trực tiếp mã vận đơn GHN thật từ DynamoDB backend
 // ============================================================
 
 import { useEffect, useState } from 'react';
@@ -10,7 +11,7 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
 import apiClient from '@/lib/api-client';
-import { getLocalOrders } from '@/lib/order-storage';
+import { getLocalOrders, saveLocalOrder } from '@/lib/order-storage';
 import { cn, formatCurrencyVND, formatDate, getImageUrl } from '@/lib/utils';
 import type { Order, OrderStatus } from '@/types/order';
 
@@ -46,18 +47,18 @@ export default function CustomerOrdersPage() {
           user_id: user.userId,
           items: [
             {
-              product_id: 'PROD_BRK_001',
-              name: 'Bố thắng đĩa trước Elig EM050',
-              price: 125000,
+              product_id: 'PROD_BRK_010',
+              name: 'Bố thắng đĩa trước Elig EM050 Ceramic',
+              price: 150000,
               quantity: 1,
-              image_url: 'https://d1yvm1htsd670r.cloudfront.net/images/elig-em050.jpg',
+              image_url: '/images/elig-em050-real.jpg',
             },
             {
-              product_id: 'PROD_OIL_003',
-              name: 'Dầu nhớt Motul 7100 4T 10W40 1L',
-              price: 265000,
-              quantity: 2,
-              image_url: 'https://d1yvm1htsd670r.cloudfront.net/images/motul-7100-10w40.jpg',
+              product_id: 'PROD_OIL_010',
+              name: 'Nhớt Motul 300V Factory Line Road Racing 10W40 1L',
+              price: 420000,
+              quantity: 1,
+              image_url: '/images/motul-300v-real.jpg',
             },
           ],
           shipping_address: {
@@ -71,26 +72,24 @@ export default function CustomerOrdersPage() {
           payment_method: 'COD',
           payment_status: 'PENDING',
           order_status: 'SHIPPED',
-          subtotal: 655000,
-          shipping_fee: 30000,
-          total_amount: 685000,
+          subtotal: 570000,
+          shipping_fee: 0,
+          total_amount: 570000,
           shipping_partner: 'Giao Hàng Nhanh (GHN)',
-          tracking_number: 'GHN88291039VN',
-          estimated_delivery: '2026-10-22T10:00:00Z',
-          created_at: '2026-10-18T08:30:00Z',
-          updated_at: '2026-10-19T14:20:00Z',
+          tracking_number: 'LYLB6Y',
+          estimated_delivery: '2026-11-04T10:00:00Z',
+          created_at: '2026-10-31T08:30:00Z',
+          updated_at: '2026-10-31T14:20:00Z',
         },
       ];
 
-      // Gọi API GET /api/orders
+      // 1. Gọi API GET /api/orders để lấy danh sách từ DynamoDB
       apiClient
         .get<{ items?: Order[]; orders?: Order[] }>('/api/orders')
         .then((res) => {
           const apiItems = res?.orders || res?.items || (Array.isArray(res) ? (res as Order[]) : []);
           const mergedMap = new Map<string, Order>();
-          // Thêm các đơn hàng local đã đặt
           local.forEach((o) => mergedMap.set(o.order_id, o));
-          // Thêm các đơn hàng từ API backend
           apiItems.forEach((o) => {
             const existing = mergedMap.get(o.order_id);
             mergedMap.set(o.order_id, {
@@ -102,11 +101,37 @@ export default function CustomerOrdersPage() {
           });
 
           const merged = Array.from(mergedMap.values());
-          if (merged.length > 0) {
-            setOrders(merged);
-          } else {
-            setOrders(sampleOrders);
-          }
+          const finalOrders = merged.length > 0 ? merged : sampleOrders;
+          setOrders(finalOrders);
+
+          // 2. Truy vấn trực tiếp DynamoDB qua /api/orders/{id} cho từng đơn để lấy mã vận đơn GHN thật
+          finalOrders.forEach((ord) => {
+            fetch(`/api/orders/${ord.order_id}`)
+              .then((r) => (r.ok ? r.json() : null))
+              .then((backendOrder) => {
+                if (backendOrder && backendOrder.tracking_number && !backendOrder.tracking_number.includes('kết nối')) {
+                  setOrders((prev) =>
+                    prev.map((item) =>
+                      item.order_id === ord.order_id
+                        ? {
+                            ...item,
+                            tracking_number: backendOrder.tracking_number,
+                            shipping_partner: backendOrder.shipping_partner || item.shipping_partner,
+                            shipping_status: backendOrder.shipping_status || item.shipping_status,
+                            order_status: backendOrder.order_status || item.order_status,
+                          }
+                        : item,
+                    ),
+                  );
+                  saveLocalOrder({
+                    ...ord,
+                    tracking_number: backendOrder.tracking_number,
+                    shipping_partner: backendOrder.shipping_partner || ord.shipping_partner,
+                  });
+                }
+              })
+              .catch(() => {});
+          });
         })
         .catch(() => {
           if (local.length > 0) {
@@ -170,7 +195,7 @@ export default function CustomerOrdersPage() {
             key={tab.value}
             onClick={() => setSelectedStatus(tab.value)}
             className={cn(
-              'px-4 py-2 text-xs font-semibold rounded-xl whitespace-nowrap transition-all',
+              'px-4 py-2 text-xs font-semibold rounded-xl whitespace-nowrap transition-all cursor-pointer',
               selectedStatus === tab.value
                 ? 'bg-orange-500 text-white shadow-sm shadow-orange-500/30'
                 : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50',
@@ -187,32 +212,32 @@ export default function CustomerOrdersPage() {
           <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">
             📦
           </div>
-          <h3 className="text-lg font-bold text-gray-800 mb-1">Chưa có đơn hàng nào</h3>
+          <h3 className="font-bold text-gray-800 text-lg mb-1">Chưa có đơn hàng nào</h3>
           <p className="text-sm text-gray-500 mb-6">
-            Bạn chưa có đơn hàng nào trong trạng thái này. Khám phá các phụ tùng xe máy chính hãng ngay!
+            Bạn chưa đặt mua đơn hàng nào trong mục này.
           </p>
           <Link
             href="/products"
-            className="px-6 py-2.5 bg-orange-500 hover:bg-orange-400 text-white rounded-xl text-sm font-semibold transition-colors"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-orange-500 hover:bg-orange-400 text-white rounded-xl font-semibold text-sm transition-all shadow-md shadow-orange-500/20"
           >
             Khám phá phụ tùng ngay
           </Link>
         </div>
       ) : (
-        <div className="space-y-5">
+        <div className="space-y-4">
           {filteredOrders.map((order) => (
             <div
               key={order.order_id}
-              className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm hover:border-orange-200 transition-all"
+              className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden hover:border-gray-300 transition-all"
             >
               {/* Card Header */}
-              <div className="bg-gray-50/70 px-5 py-3.5 border-b border-gray-100 flex flex-wrap items-center justify-between gap-3 text-xs">
+              <div className="p-5 border-b border-gray-100 flex flex-wrap items-center justify-between gap-4 bg-gray-50/50">
                 <div className="flex items-center gap-3">
-                  <span className="font-mono font-bold text-gray-800 text-sm">
+                  <span className="font-bold text-gray-900 text-sm">
                     #{order.order_id}
                   </span>
-                  <span className="text-gray-400">•</span>
-                  <span className="text-gray-500">
+                  <span className="text-xs text-gray-400">•</span>
+                  <span className="text-xs text-gray-500">
                     {formatDate(order.created_at)}
                   </span>
                 </div>
@@ -270,12 +295,17 @@ export default function CustomerOrdersPage() {
               {/* Card Footer */}
               <div className="bg-gray-50/40 px-5 py-4 border-t border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="text-xs text-gray-600">
-                  {order.tracking_number && (
+                  {order.tracking_number && !order.tracking_number.includes('kết nối') ? (
                     <p className="flex items-center gap-1.5 text-gray-700">
                       <span>🚚</span>
                       <span>
-                        Vận đơn: <strong>{order.tracking_number}</strong> ({order.shipping_partner})
+                        Vận đơn: <strong className="font-mono text-orange-600 bg-orange-50 px-2 py-0.5 rounded border border-orange-200">{order.tracking_number}</strong> ({order.shipping_partner || 'Giao Hàng Nhanh (GHN)'})
                       </span>
+                    </p>
+                  ) : (
+                    <p className="flex items-center gap-1.5 text-gray-500 text-xs">
+                      <span>🚚</span>
+                      <span>Vận đơn: Đang đồng bộ từ Giao Hàng Nhanh (GHN)...</span>
                     </p>
                   )}
                   <p className="text-gray-500 mt-0.5">
@@ -329,13 +359,13 @@ function StatusBadge({ status }: { status: OrderStatus }) {
       );
     case 'DELIVERED':
       return (
-        <span className="px-2.5 py-0.5 bg-green-100 text-green-700 font-bold rounded-full text-[11px]">
-          Đã giao thành công
+        <span className="px-2.5 py-0.5 bg-emerald-100 text-emerald-700 font-bold rounded-full text-[11px]">
+          Đã giao hàng
         </span>
       );
     case 'CANCELLED':
       return (
-        <span className="px-2.5 py-0.5 bg-red-100 text-red-700 font-bold rounded-full text-[11px]">
+        <span className="px-2.5 py-0.5 bg-rose-100 text-rose-700 font-bold rounded-full text-[11px]">
           Đã hủy
         </span>
       );
@@ -343,4 +373,3 @@ function StatusBadge({ status }: { status: OrderStatus }) {
       return null;
   }
 }
-

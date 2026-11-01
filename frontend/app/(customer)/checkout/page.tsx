@@ -125,7 +125,6 @@ export default function CheckoutPage() {
 
     const randomSuffix = Math.floor(100000 + Math.random() * 900000);
     const orderId = `ORD_${Date.now().toString().slice(-6)}${randomSuffix.toString().slice(-2)}`;
-    const trackingCode = `GHN${Math.floor(100000000 + Math.random() * 900000000)}VN`;
 
     const newOrder: Order = {
       order_id: orderId,
@@ -145,7 +144,6 @@ export default function CheckoutPage() {
       shipping_fee: shippingFee,
       total_amount: totalAmount,
       shipping_partner: 'Giao Hàng Nhanh (GHN)',
-      tracking_number: trackingCode,
       estimated_delivery: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
