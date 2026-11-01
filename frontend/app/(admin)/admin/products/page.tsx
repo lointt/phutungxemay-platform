@@ -115,8 +115,9 @@ export default function AdminProductsPage() {
           .get<{ items?: Record<string, unknown>[] }>('/api/products')
           .catch(() => null);
         let items: Product[] = [];
-        if (res?.items && Array.isArray(res.items)) {
-          items = res.items.map(normalizeDynamoProduct);
+        const rawList = (res as any)?.products ?? res?.items;
+        if (rawList && Array.isArray(rawList)) {
+          items = rawList.map(normalizeDynamoProduct);
         }
 
         const custom = getAdminCustomProducts();
@@ -298,11 +299,10 @@ export default function AdminProductsPage() {
 
     try {
       await apiClient.put(`/api/products/${prodId}`, {
-        ...updated,
         stock: newStock,
       });
-    } catch {
-      // Backend catalog sync fallback
+    } catch (err) {
+      console.error('Lỗi khi cập nhật tồn kho:', err);
     }
   };
 

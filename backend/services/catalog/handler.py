@@ -17,6 +17,18 @@ class DecimalEncoder(json.JSONEncoder):
             return int(obj) if obj % 1 == 0 else float(obj)
         return super(DecimalEncoder, self).default(obj)
 
+def to_dynamo_value(val):
+    """Đảm bảo mọi số nguyên, số thực hoặc boolean được chuyển sang kiểu DynamoDB hợp lệ"""
+    if isinstance(val, bool):
+        return val
+    if isinstance(val, (int, float)):
+        return Decimal(str(val))
+    if isinstance(val, list):
+        return [to_dynamo_value(v) for v in val]
+    if isinstance(val, dict):
+        return {k: to_dynamo_value(v) for k, v in val.items()}
+    return val
+
 def build_response(status_code, body):
     """Chuẩn hóa cấu trúc response trả về cho API Gateway"""
     return {
@@ -106,6 +118,7 @@ def lambda_handler(event, context):
             items = response.get('Items', [])
             return build_response(200, {
                 "products": items,
+                "items": items,
                 "count": len(items)
             })
 
@@ -158,15 +171,12 @@ def lambda_handler(event, context):
             expr_values = {}
 
             for key, val in body.items():
-                if key != 'ProductID':
+                if key not in ('ProductID', 'product_id'):
                     attr_name = f"#{key}"
                     attr_val = f":{key}"
                     update_expr.append(f"{attr_name} = {attr_val}")
                     expr_names[attr_name] = key
-                    if isinstance(val, (int, float)):
-                        expr_values[attr_val] = Decimal(str(val))
-                    else:
-                        expr_values[attr_val] = val
+                    expr_values[attr_val] = to_dynamo_value(val)
 
             if not update_expr:
                 return build_response(400, {"message": "Không có trường hợp lệ để cập nhật."})
