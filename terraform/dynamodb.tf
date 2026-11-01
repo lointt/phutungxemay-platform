@@ -146,6 +146,11 @@ resource "aws_dynamodb_table" "store_policies" {
 }
 
 # 6. Bảng chatbot-sessions (Lịch sử hội thoại & Rate-limit cho Chatbot)
+import {
+  to = aws_dynamodb_table.chatbot_sessions
+  id = "chatbot-sessions"
+}
+
 resource "aws_dynamodb_table" "chatbot_sessions" {
   name         = "chatbot-sessions"
   billing_mode = "PAY_PER_REQUEST"

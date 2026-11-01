@@ -3,20 +3,9 @@
 ################################################################################
 
 # 1. Google Gemini API Key (Dùng cho RAG Chatbot & Embedding)
-resource "aws_ssm_parameter" "gemini_api_key" {
-  name        = "/chatbot/gemini_api_key"
-  description = "Google Gemini API Key cho Chatbot RAG v2 & Embedding"
-  type        = "SecureString"
-  value       = "INITIAL_KEY_CONFIGURE_VIA_AWS_CLI_OR_CONSOLE"
-
-  lifecycle {
-    ignore_changes = [value]
-  }
-
-  tags = {
-    Environment = var.environment
-    ManagedBy   = "Terraform"
-  }
+# Đọc trực tiếp từ SSM Parameter Store đã có sẵn trên tài khoản AWS của bạn
+data "aws_ssm_parameter" "gemini_api_key" {
+  name = "/chatbot/gemini_api_key"
 }
 
 # 2. VNPAY Terminal Code (TMN Code)

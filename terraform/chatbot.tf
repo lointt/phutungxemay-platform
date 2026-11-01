@@ -5,6 +5,11 @@
 # ==============================================================================
 # 1. S3 BUCKET LƯU TRỮ VECTOR KNOWLEDGE BASE (JSON SNAPSHOTS)
 # ==============================================================================
+import {
+  to = aws_s3_bucket.chatbot_kb
+  id = "chatbot-kb-741796256397-dev"
+}
+
 resource "aws_s3_bucket" "chatbot_kb" {
   bucket = "chatbot-kb-741796256397-dev"
 
@@ -36,7 +41,7 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "chatbot_kb" {
 # 2. API GATEWAY V2 WEBSOCKET API (2-WAY REALTIME COMMUNICATION)
 # ==============================================================================
 resource "aws_apigatewayv2_api" "chatbot_ws" {
-  name                       = "chatbot-ws"
+  name                       = "phutungxemay-chatbot-ws-${var.environment}"
   protocol_type              = "WEBSOCKET"
   route_selection_expression = "$request.body.action"
 
@@ -385,7 +390,7 @@ data "archive_file" "sync_to_kb_zip" {
 
 # Lambda 1: Chat Receiver (Dispatcher)
 resource "aws_lambda_function" "chat_receiver" {
-  function_name    = "chat-receiver"
+  function_name    = "ChatReceiverHandler-${local.env_title}"
   role             = aws_iam_role.chatbot_receiver_role.arn
   runtime          = "python3.12"
   handler          = "lambda_function.lambda_handler"
@@ -400,19 +405,19 @@ resource "aws_lambda_function" "chat_receiver" {
 
   environment {
     variables = {
-      WORKER_FUNCTION = "chat-orchestrator-v2"
+      WORKER_FUNCTION = "ChatOrchestratorHandler-${local.env_title}"
     }
   }
 
   tags = {
-    Name        = "ChatReceiver-${local.env_title}"
+    Name        = "ChatReceiverHandler-${local.env_title}"
     Environment = var.environment
   }
 }
 
 # Lambda 2: Chat Orchestrator (Worker RAG v2)
 resource "aws_lambda_function" "chat_orchestrator" {
-  function_name    = "chat-orchestrator-v2"
+  function_name    = "ChatOrchestratorHandler-${local.env_title}"
   role             = aws_iam_role.chatbot_orchestrator_role.arn
   runtime          = "python3.12"
   handler          = "lambda_function.lambda_handler"
@@ -428,7 +433,7 @@ resource "aws_lambda_function" "chat_orchestrator" {
   environment {
     variables = {
       AWS_REGION_NAME      = var.aws_region
-      GEMINI_SSM_PARAM     = aws_ssm_parameter.gemini_api_key.name
+      GEMINI_SSM_PARAM     = data.aws_ssm_parameter.gemini_api_key.name
       SESSION_TABLE        = aws_dynamodb_table.chatbot_sessions.name
       USERS_TABLE          = aws_dynamodb_table.users.name
       CARTS_TABLE          = aws_dynamodb_table.carts.name
@@ -440,7 +445,7 @@ resource "aws_lambda_function" "chat_orchestrator" {
   }
 
   tags = {
-    Name        = "ChatOrchestrator-${local.env_title}"
+    Name        = "ChatOrchestratorHandler-${local.env_title}"
     Environment = var.environment
   }
 }
@@ -463,7 +468,7 @@ resource "aws_lambda_function" "sync_to_kb" {
   environment {
     variables = {
       AWS_REGION_NAME  = var.aws_region
-      GEMINI_SSM_PARAM = aws_ssm_parameter.gemini_api_key.name
+      GEMINI_SSM_PARAM = data.aws_ssm_parameter.gemini_api_key.name
       PRODUCTS_TABLE   = aws_dynamodb_table.products.name
       POLICIES_TABLE   = aws_dynamodb_table.store_policies.name
       VECTOR_BUCKET    = aws_s3_bucket.chatbot_kb.bucket
