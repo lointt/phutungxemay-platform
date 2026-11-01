@@ -233,7 +233,11 @@ def lambda_handler(event, context):
 
         # 2. GET /orders: XEM DANH SÁCH ĐƠN HÀNG
         elif http_method == 'GET' and not order_id:
-            if is_admin:
+            query_params = event.get('queryStringParameters') or {}
+            scope = query_params.get('scope', '')
+
+            # Chỉ scan toàn bộ đơn nếu là Admin VÀ KHÔNG PHẢI xem đơn cá nhân (scope != 'me')
+            if is_admin and scope != 'me':
                 response = orders_table.scan(Limit=50)
                 return build_response(200, {
                     "role": "Admin",
@@ -268,11 +272,8 @@ def lambda_handler(event, context):
             # Public order tracking cho phép xem chi tiết đơn hàng nếu có order_id
             return build_response(200, order)
 
-        # 4. PUT /orders/{id}: ADMIN CẬP NHẬT TRẠNG THÁI ĐƠN HÀNG
+        # 4. PUT /orders/{id}: CẬP NHẬT HOẶC HỦY TRẠNG THÁI ĐƠN HÀNG
         elif http_method == 'PUT' and order_id:
-            if not is_admin:
-                return build_response(403, {"message": "Chỉ có Admin mới có quyền cập nhật trạng thái đơn."})
-
             body = json.loads(event.get('body', '{}'))
             new_status = body.get('order_status')
             tracking_number = body.get('tracking_number')
@@ -286,6 +287,17 @@ def lambda_handler(event, context):
                 return build_response(404, {"message": f"Không tìm thấy đơn hàng {order_id}"})
 
             order_owner_id = items[0]['UserID']
+            current_status = items[0].get('order_status', 'PLACED')
+
+            # Nếu không phải Admin, kiểm tra quyền Khách hàng hủy đơn của chính mình:
+            if not is_admin:
+                if user_id != order_owner_id:
+                    return build_response(403, {"message": "Bạn không có quyền thao tác trên đơn hàng này."})
+                if new_status != 'CANCELLED':
+                    return build_response(403, {"message": "Khách hàng chỉ có quyền yêu cầu hủy đơn hàng."})
+                if current_status not in ['PLACED', 'PROCESSING']:
+                    return build_response(400, {"message": "Đơn hàng đang giao hoặc đã giao, không thể hủy."})
+
             now_iso = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
 
             update_expr = "SET #status = :status, #updated_at = :updated_at"
@@ -304,7 +316,9 @@ def lambda_handler(event, context):
                 ExpressionAttributeValues=expr_values
             )
 
-            publish_event('OrderStatusUpdated', {
+            # Phát sự kiện sang EventBridge
+            event_type = 'OrderCancelled' if new_status == 'CANCELLED' else 'OrderStatusUpdated'
+            publish_event(event_type, {
                 "order_id": order_id,
                 "user_id": order_owner_id,
                 "new_status": new_status,

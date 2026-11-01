@@ -10,7 +10,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { OrderTimeline } from '@/components/customer/order-timeline';
 import apiClient from '@/lib/api-client';
-import { getLocalOrderById } from '@/lib/order-storage';
+import { getLocalOrderById, updateLocalOrderStatus } from '@/lib/order-storage';
 import { cn, formatCurrencyVND, formatDate, getImageUrl } from '@/lib/utils';
 import type { Order } from '@/types/order';
 
@@ -42,6 +42,28 @@ function OrderTrackingContent({ params }: PageProps) {
 
   const [order, setOrder] = useState<Order | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isCancelling, setIsCancelling] = useState(false);
+
+  const handleCancelOrder = async () => {
+    if (!order) return;
+    const ok = window.confirm(
+      `Bạn có chắc chắn muốn hủy đơn hàng #${order.order_id} không? Hành động này không thể hoàn tác.`
+    );
+    if (!ok) return;
+
+    setIsCancelling(true);
+    try {
+      await apiClient.put(`/api/orders/${order.order_id}`, { status: 'CANCELLED' });
+      updateLocalOrderStatus(order.order_id, 'CANCELLED');
+      setOrder((prev) => (prev ? { ...prev, order_status: 'CANCELLED' } : null));
+      alert('Hủy đơn hàng thành công!');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Có lỗi xảy ra khi hủy đơn hàng';
+      alert(`Không thể hủy đơn hàng: ${msg}`);
+    } finally {
+      setIsCancelling(false);
+    }
+  };
 
   useEffect(() => {
     // 1. Tìm trong localStorage trước (tức thì, không cần đợi mạng)
@@ -148,6 +170,25 @@ function OrderTrackingContent({ params }: PageProps) {
           <p className="text-xs text-gray-500 mt-1">
             Đặt ngày: {formatDate(order.created_at)}
           </p>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex items-center gap-3">
+          {(order.order_status === 'PLACED' || order.order_status === 'PROCESSING') && (
+            <button
+              onClick={handleCancelOrder}
+              disabled={isCancelling}
+              className="px-4 py-2 text-xs font-semibold text-rose-600 hover:text-white bg-rose-50 hover:bg-rose-600 border border-rose-200 rounded-xl transition-all disabled:opacity-50 flex items-center gap-1.5 shadow-sm"
+            >
+              <span>✕</span>
+              <span>{isCancelling ? 'Đang hủy...' : 'Hủy đơn hàng'}</span>
+            </button>
+          )}
+          {order.order_status === 'CANCELLED' && (
+            <span className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200 flex items-center gap-1">
+              <span>✕</span> Đơn hàng đã hủy
+            </span>
+          )}
         </div>
       </div>
 

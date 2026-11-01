@@ -3,6 +3,8 @@
 // ============================================================
 // app/(customer)/account/orders/page.tsx — Đơn hàng của tôi
 // Đồng bộ trực tiếp mã vận đơn GHN thật từ DynamoDB backend
+// Hỗ trợ hủy đơn hàng trực tiếp cho trạng thái PLACED & PROCESSING
+// Tự động phân tách đơn hàng theo UserID và khử trùng lặp
 // ============================================================
 
 import { useEffect, useState } from 'react';
@@ -11,7 +13,7 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
 import apiClient from '@/lib/api-client';
-import { getLocalOrders, saveLocalOrder } from '@/lib/order-storage';
+import { getLocalOrders, saveLocalOrder, updateLocalOrderStatus } from '@/lib/order-storage';
 import { cn, formatCurrencyVND, formatDate, getImageUrl } from '@/lib/utils';
 import type { Order, OrderStatus } from '@/types/order';
 
@@ -31,6 +33,8 @@ export default function CustomerOrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [selectedStatus, setSelectedStatus] = useState<OrderStatus | 'ALL'>('ALL');
   const [isLoading, setIsLoading] = useState(true);
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -39,58 +43,24 @@ export default function CustomerOrdersPage() {
     }
 
     if (user) {
-      const local = getLocalOrders();
+      // 1. Chỉ lấy đơn hàng thuộc về đúng User ID hiện tại
+      const local = getLocalOrders(user.userId);
 
-      const sampleOrders: Order[] = [
-        {
-          order_id: 'ORD_20261015_001',
-          user_id: user.userId,
-          items: [
-            {
-              product_id: 'PROD_BRK_010',
-              name: 'Bố thắng đĩa trước Elig EM050 Ceramic',
-              price: 150000,
-              quantity: 1,
-              image_url: '/images/elig-em050-real.jpg',
-            },
-            {
-              product_id: 'PROD_OIL_010',
-              name: 'Nhớt Motul 300V Factory Line Road Racing 10W40 1L',
-              price: 420000,
-              quantity: 1,
-              image_url: '/images/motul-300v-real.jpg',
-            },
-          ],
-          shipping_address: {
-            full_name: user.name || 'Khách hàng',
-            phone: '0901234567',
-            street: '123 Nguyễn Thị Minh Khai',
-            ward: 'Phường Bến Nghé',
-            district: 'Quận 1',
-            province: 'TP. Hồ Chí Minh',
-          },
-          payment_method: 'COD',
-          payment_status: 'PENDING',
-          order_status: 'SHIPPED',
-          subtotal: 570000,
-          shipping_fee: 0,
-          total_amount: 570000,
-          shipping_partner: 'Giao Hàng Nhanh (GHN)',
-          tracking_number: 'LYLB6Y',
-          estimated_delivery: '2026-11-04T10:00:00Z',
-          created_at: '2026-10-31T08:30:00Z',
-          updated_at: '2026-10-31T14:20:00Z',
-        },
-      ];
-
-      // 1. Gọi API GET /api/orders để lấy danh sách từ DynamoDB
+      // 2. Gọi API GET /api/orders?scope=me để backend DynamoDB lọc theo user_id
       apiClient
-        .get<{ items?: Order[]; orders?: Order[] }>('/api/orders')
+        .get<{ items?: Order[]; orders?: Order[] }>('/api/orders?scope=me')
         .then((res) => {
           const apiItems = res?.orders || res?.items || (Array.isArray(res) ? (res as Order[]) : []);
+          
+          // Lọc lại chặt chẽ theo user_id nếu backend trả về
+          const userApiItems = apiItems.filter((o) => {
+            const uid = o.user_id || (o as unknown as { UserID?: string }).UserID;
+            return !uid || uid === user.userId || uid === 'GUEST';
+          });
+
           const mergedMap = new Map<string, Order>();
           local.forEach((o) => mergedMap.set(o.order_id, o));
-          apiItems.forEach((o) => {
+          userApiItems.forEach((o) => {
             const existing = mergedMap.get(o.order_id);
             mergedMap.set(o.order_id, {
               ...existing,
@@ -100,12 +70,47 @@ export default function CustomerOrdersPage() {
             });
           });
 
-          const merged = Array.from(mergedMap.values());
-          const finalOrders = merged.length > 0 ? merged : sampleOrders;
-          setOrders(finalOrders);
+          // Khử trùng lặp: nếu có 2 đơn có cùng sản phẩm và tổng tiền, ưu tiên đơn có mã server
+          const rawMerged = Array.from(mergedMap.values());
+          const seenSignatures = new Set<string>();
+          const deduped: Order[] = [];
 
-          // 2. Truy vấn trực tiếp DynamoDB qua /api/orders/{id} cho từng đơn để lấy mã vận đơn GHN thật
-          finalOrders.forEach((ord) => {
+          for (const ord of rawMerged) {
+            const sig = (ord.items || [])
+              .map((i) => `${i.product_id}:${i.quantity}`)
+              .sort()
+              .join('|') + `_${ord.total_amount}`;
+
+            if (seenSignatures.has(sig)) {
+              const existingIdx = deduped.findIndex((d) => {
+                const dSig = (d.items || [])
+                  .map((i) => `${i.product_id}:${i.quantity}`)
+                  .sort()
+                  .join('|') + `_${d.total_amount}`;
+                return dSig === sig;
+              });
+
+              if (existingIdx !== -1) {
+                const existing = deduped[existingIdx];
+                // Giữ đơn có mã dài hơn (mã server) hoặc có mã vận đơn
+                if (
+                  (ord.tracking_number && !existing.tracking_number) ||
+                  (ord.order_id.includes('_') && ord.order_id.length > existing.order_id.length)
+                ) {
+                  deduped[existingIdx] = ord;
+                }
+              }
+              continue;
+            }
+
+            seenSignatures.add(sig);
+            deduped.push(ord);
+          }
+
+          setOrders(deduped);
+
+          // 3. Đồng bộ mã vận đơn thật từ DynamoDB qua /api/orders/{id}
+          deduped.forEach((ord) => {
             fetch(`/api/orders/${ord.order_id}`)
               .then((r) => (r.ok ? r.json() : null))
               .then((backendOrder) => {
@@ -134,15 +139,43 @@ export default function CustomerOrdersPage() {
           });
         })
         .catch(() => {
-          if (local.length > 0) {
-            setOrders(local);
-          } else {
-            setOrders(sampleOrders);
-          }
+          setOrders(local);
         })
         .finally(() => setIsLoading(false));
     }
   }, [user, isAuthenticated, authLoading, router]);
+
+  const handleCancelOrder = async (orderId: string) => {
+    if (!confirm(`Bạn có chắc chắn muốn hủy đơn hàng #${orderId} không?`)) {
+      return;
+    }
+
+    setCancellingId(orderId);
+    try {
+      // 1. Gọi API PUT /api/orders/{id} để cập nhật trạng thái hủy trên DynamoDB
+      await apiClient.put(`/api/orders/${orderId}`, {
+        order_status: 'CANCELLED',
+      });
+
+      // 2. Cập nhật localStorage
+      updateLocalOrderStatus(orderId, 'CANCELLED');
+
+      // 3. Cập nhật state UI
+      setOrders((prev) =>
+        prev.map((o) =>
+          o.order_id === orderId ? { ...o, order_status: 'CANCELLED' } : o,
+        ),
+      );
+
+      setToastMessage(`Đã hủy đơn hàng #${orderId} thành công!`);
+      setTimeout(() => setToastMessage(null), 3500);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Lỗi khi hủy đơn hàng';
+      alert(`Không thể hủy đơn hàng: ${msg}`);
+    } finally {
+      setCancellingId(null);
+    }
+  };
 
   const filteredOrders =
     selectedStatus === 'ALL'
@@ -164,6 +197,13 @@ export default function CustomerOrdersPage() {
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div className="fixed top-5 right-5 z-50 bg-slate-900 text-white px-5 py-3 rounded-xl shadow-2xl border border-slate-700 flex items-center gap-3 animate-in fade-in slide-in-from-top-4">
+          <span>{toastMessage}</span>
+        </div>
+      )}
+
       {/* Breadcrumb & Header */}
       <nav className="flex items-center gap-2 text-sm text-gray-500 mb-6">
         <Link href="/" className="hover:text-orange-500 transition-colors">Trang chủ</Link>
@@ -214,7 +254,7 @@ export default function CustomerOrdersPage() {
           </div>
           <h3 className="font-bold text-gray-800 text-lg mb-1">Chưa có đơn hàng nào</h3>
           <p className="text-sm text-gray-500 mb-6">
-            Bạn chưa đặt mua đơn hàng nào trong mục này.
+            Bạn chưa có đơn hàng nào trong mục này.
           </p>
           <Link
             href="/products"
@@ -321,12 +361,26 @@ export default function CustomerOrdersPage() {
                     </span>
                   </div>
 
-                  <Link
-                    href={`/orders/${order.order_id}`}
-                    className="px-3.5 py-1.5 bg-orange-500 hover:bg-orange-400 text-white rounded-xl text-xs font-bold transition-colors shadow-sm"
-                  >
-                    Xem chi tiết
-                  </Link>
+                  <div className="flex items-center gap-2">
+                    {/* Nút Hủy đơn chỉ hiển thị cho trạng thái Chờ xử lý hoặc Đang chuẩn bị */}
+                    {(order.order_status === 'PLACED' || order.order_status === 'PROCESSING') && (
+                      <button
+                        type="button"
+                        disabled={cancellingId === order.order_id}
+                        onClick={() => handleCancelOrder(order.order_id)}
+                        className="px-3.5 py-1.5 border border-rose-200 hover:bg-rose-50 text-rose-600 rounded-xl text-xs font-bold transition-colors cursor-pointer disabled:opacity-50"
+                      >
+                        {cancellingId === order.order_id ? 'Đang hủy...' : 'Hủy đơn'}
+                      </button>
+                    )}
+
+                    <Link
+                      href={`/orders/${order.order_id}`}
+                      className="px-3.5 py-1.5 bg-orange-500 hover:bg-orange-400 text-white rounded-xl text-xs font-bold transition-colors shadow-sm"
+                    >
+                      Xem chi tiết
+                    </Link>
+                  </div>
                 </div>
               </div>
             </div>

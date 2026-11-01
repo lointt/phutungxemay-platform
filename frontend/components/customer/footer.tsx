@@ -68,7 +68,6 @@ export function CustomerFooter() {
             <h3 className="font-semibold text-white mb-4">Hỗ Trợ</h3>
             <ul className="space-y-2 text-sm">
               {[
-                { label: 'Tra cứu đơn hàng', href: '/account/orders' },
                 { label: 'Chính sách đổi trả', href: '/chinh-sach-doi-tra' },
                 { label: 'Chính sách bảo hành', href: '/chinh-sach-bao-hanh' },
                 { label: 'Chính sách vận chuyển', href: '/chinh-sach-van-chuyen' },

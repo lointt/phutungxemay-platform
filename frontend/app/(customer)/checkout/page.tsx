@@ -150,13 +150,10 @@ export default function CheckoutPage() {
       notes: notes.trim() || undefined,
     };
 
-    // 1. Lưu ngay đơn hàng vào LocalStorage để đảm bảo 100% không bị mất dù có sự cố mạng
-    saveLocalOrder(newOrder);
-
     let finalOrderId = orderId;
     let paymentUrl: string | undefined;
 
-    // 2. Đồng bộ giỏ hàng lên DynamoDB Carts table trước khi tạo đơn
+    // 1. Đồng bộ giỏ hàng lên DynamoDB Carts table trước khi tạo đơn
     // Reset giỏ trước để tránh cộng dồn số lượng vượt tồn kho
     try {
       await apiClient.delete('/api/cart');
@@ -174,7 +171,7 @@ export default function CheckoutPage() {
       }
     }
 
-    // 3. Gọi API Backend POST /api/orders tạo đơn hàng trực tiếp trong bảng Orders trên DynamoDB
+    // 2. Gọi API Backend POST /api/orders tạo đơn hàng trực tiếp trong bảng Orders trên DynamoDB
     try {
       const res = await apiClient.post<{ order?: Order & { OrderID?: string }; order_id?: string; OrderID?: string; payment_url?: string }>(
         '/api/orders',
@@ -192,8 +189,6 @@ export default function CheckoutPage() {
       const serverOrderId = res?.order?.order_id || res?.order?.OrderID || res?.order_id || res?.OrderID;
       if (serverOrderId) {
         finalOrderId = serverOrderId;
-        newOrder.order_id = finalOrderId;
-        saveLocalOrder(newOrder);
       }
       if (res?.payment_url) {
         paymentUrl = res.payment_url;
@@ -201,6 +196,10 @@ export default function CheckoutPage() {
     } catch (err) {
       console.log('Order created locally, backend sync note:', err);
     }
+
+    // 3. Lưu DUY NHẤT 1 bản ghi đơn hàng với mã đơn chính thức từ Server (tránh nhân đôi đơn)
+    newOrder.order_id = finalOrderId;
+    saveLocalOrder(newOrder);
 
     // 4. Đồng bộ trừ tồn kho trực tiếp trên bảng Products của DynamoDB (qua route server-side bảo mật)
     try {
