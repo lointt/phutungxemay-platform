@@ -92,6 +92,25 @@ def sync_store_policies():
     resp = table.scan()
     items = resp.get("Items", [])
 
+    if not items:
+        docs_dir = os.path.join(os.path.dirname(__file__), "..", "..", "chatbot", "data", "kb_docs")
+        if os.path.exists(docs_dir):
+            print(f"[DATA_SYNC] Bảng {POLICIES_TABLE} trống, tự động nạp từ {docs_dir}...")
+            for fname in os.listdir(docs_dir):
+                if fname.endswith(".txt"):
+                    fpath = os.path.join(docs_dir, fname)
+                    with open(fpath, "r", encoding="utf-8") as f:
+                        c = f.read().strip()
+                    pid = f"POL_{fname.replace('.txt', '').upper()}"
+                    table.put_item(Item={
+                        "PolicyID": pid,
+                        "title": fname.replace(".txt", "").replace("_", " ").title(),
+                        "content": c,
+                        "updated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                    })
+            resp = table.scan()
+            items = resp.get("Items", [])
+
     kb_chunks = []
     for item in items:
         pid = item.get("PolicyID", "POL_UNKNOWN")
@@ -223,3 +242,9 @@ def lambda_handler(event, context):
         sync_products()
 
     return {"statusCode": 200, "body": "stream_sync_completed"}
+
+
+if __name__ == "__main__":
+    print("=== CHAY DONG BO TRI THUC & SAN PHAM S3 VECTOR KB ===")
+    lambda_handler({}, None)
+

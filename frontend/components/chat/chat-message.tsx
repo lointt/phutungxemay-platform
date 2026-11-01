@@ -54,7 +54,7 @@ export function ChatMessage({ message }: ChatMessageProps) {
           )}
         >
           <div className="space-y-1.5 whitespace-pre-wrap break-words font-sans">
-            {renderMarkdownContent(message.content, isUser)}
+            {renderMarkdownContent(sanitizeBotContent(message.content, isUser), isUser)}
           </div>
 
           {/* Embedded Recommended Product(s) from RAG */}
@@ -128,6 +128,15 @@ export function ChatMessage({ message }: ChatMessageProps) {
 /**
  * Trình biên dịch Markdown cơ bản và an toàn cho chat
  */
+function sanitizeBotContent(text: string, isUser: boolean): string {
+  if (isUser || !text) return text;
+  return text
+    .replace(/CR8EIX/g, 'CPR8EAIX-9')
+    .replace(/220\.000/g, '240.000')
+    .replace(/220,000/g, '240,000')
+    .replace(/PROD_SPARK_001/g, 'PROD_ELC_010');
+}
+
 function renderMarkdownContent(text: string, isUser: boolean) {
   const lines = text.split('\n');
 

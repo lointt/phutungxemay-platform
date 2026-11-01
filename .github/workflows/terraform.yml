@@ -81,3 +81,13 @@ jobs:
         run: |
           echo "Applying Terraform changes..."
           terraform apply -auto-approve -input=false tfplan
+
+      - name: 🔄 Sync Vector KB & Store Policies to S3
+        if: |
+          (github.ref == 'refs/heads/main' && github.event_name == 'push') ||
+          (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'apply')
+        working-directory: .
+        run: |
+          python -m pip install --upgrade pip
+          pip install boto3 google-genai
+          python backend/services/sync_to_kb/handler.py
