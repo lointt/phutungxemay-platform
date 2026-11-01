@@ -6,11 +6,12 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
 import apiClient from '@/lib/api-client';
 import { getLocalOrders } from '@/lib/order-storage';
-import { cn, formatCurrencyVND, formatDate } from '@/lib/utils';
+import { cn, formatCurrencyVND, formatDate, getImageUrl } from '@/lib/utils';
 import type { Order, OrderStatus } from '@/types/order';
 
 const STATUS_TABS: { label: string; value: OrderStatus | 'ALL' }[] = [
@@ -83,14 +84,22 @@ export default function CustomerOrdersPage() {
 
       // Gọi API GET /api/orders
       apiClient
-        .get<{ items?: Order[] }>('/api/orders')
+        .get<{ items?: Order[]; orders?: Order[] }>('/api/orders')
         .then((res) => {
-          const apiItems = res?.items || [];
+          const apiItems = res?.orders || res?.items || (Array.isArray(res) ? (res as Order[]) : []);
           const mergedMap = new Map<string, Order>();
           // Thêm các đơn hàng local đã đặt
           local.forEach((o) => mergedMap.set(o.order_id, o));
           // Thêm các đơn hàng từ API backend
-          apiItems.forEach((o) => mergedMap.set(o.order_id, o));
+          apiItems.forEach((o) => {
+            const existing = mergedMap.get(o.order_id);
+            mergedMap.set(o.order_id, {
+              ...existing,
+              ...o,
+              tracking_number: o.tracking_number || existing?.tracking_number,
+              shipping_partner: o.shipping_partner || existing?.shipping_partner || 'Giao Hàng Nhanh (GHN)',
+            });
+          });
 
           const merged = Array.from(mergedMap.values());
           if (merged.length > 0) {
@@ -220,10 +229,21 @@ export default function CustomerOrdersPage() {
               <div className="p-5 divide-y divide-gray-100">
                 {order.items.map((item, idx) => (
                   <div key={idx} className="py-3 first:pt-0 last:pb-0 flex items-center gap-4">
-                    <div className="w-14 h-14 bg-gray-100 rounded-xl flex items-center justify-center text-orange-500 flex-shrink-0">
-                      <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
-                      </svg>
+                    <div className="w-14 h-14 bg-gray-100 rounded-xl overflow-hidden relative flex items-center justify-center flex-shrink-0 border border-gray-100">
+                      {item.image_url ? (
+                        <Image
+                          src={getImageUrl(item.image_url)}
+                          alt={item.name}
+                          fill
+                          unoptimized
+                          className="object-cover"
+                          sizes="56px"
+                        />
+                      ) : (
+                        <svg className="w-6 h-6 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+                        </svg>
+                      )}
                     </div>
 
                     <div className="flex-1 min-w-0">

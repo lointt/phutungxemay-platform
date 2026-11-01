@@ -49,18 +49,23 @@ function OrderTrackingContent({ params }: PageProps) {
     if (localOrder) {
       setOrder(localOrder);
       setIsLoading(false);
-      return;
     }
 
-    // 2. Thử gọi API GET /api/orders/{id}
+    // 2. Luôn gọi API GET /api/orders/{id} để đồng bộ trạng thái mới nhất từ backend DynamoDB / GHN
     apiClient
       .get<Order>(`/api/orders/${orderId}`)
       .then((res) => {
         if (res && res.order_id) {
-          setOrder(res);
+          setOrder((prev) => ({
+            ...prev,
+            ...res,
+            tracking_number: res.tracking_number || prev?.tracking_number,
+            shipping_partner: res.shipping_partner || prev?.shipping_partner || 'Giao Hàng Nhanh (GHN)',
+          }));
         }
       })
       .catch(() => {
+        if (!localOrder) {
         // Fallback demo cho phép kiểm tra giao diện nếu mã đơn không tồn tại
         const fallbackOrder: Order = {
           order_id: orderId,
@@ -95,7 +100,8 @@ function OrderTrackingContent({ params }: PageProps) {
           updated_at: new Date().toISOString(),
         };
         setOrder(fallbackOrder);
-      })
+      }
+    })
       .finally(() => setIsLoading(false));
   }, [orderId]);
 

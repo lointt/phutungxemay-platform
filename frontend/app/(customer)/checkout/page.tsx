@@ -125,7 +125,7 @@ export default function CheckoutPage() {
 
     const randomSuffix = Math.floor(100000 + Math.random() * 900000);
     const orderId = `ORD_${Date.now().toString().slice(-6)}${randomSuffix.toString().slice(-2)}`;
-    const trackingCode = 'Đang kết nối GHN...';
+    const trackingCode = `GHN${Math.floor(100000000 + Math.random() * 900000000)}VN`;
 
     const newOrder: Order = {
       order_id: orderId,
