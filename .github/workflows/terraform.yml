@@ -61,17 +61,7 @@ jobs:
         run: terraform fmt -check -diff || true
 
       - name: 🚀 Terraform Init
-        run: |
-          if [ -n "${{ vars.AWS_S3_TFSTATE_BUCKET || secrets.AWS_S3_TFSTATE_BUCKET }}" ]; then
-            echo "Initializing with remote S3 backend..."
-            terraform init -input=false \
-              -backend-config="bucket=${{ vars.AWS_S3_TFSTATE_BUCKET || secrets.AWS_S3_TFSTATE_BUCKET }}" \
-              -backend-config="key=replica/terraform.tfstate" \
-              -backend-config="region=${{ vars.AWS_REGION || secrets.AWS_REGION || 'ap-southeast-1' }}"
-          else
-            echo "Initializing with local/default backend..."
-            terraform init -input=false
-          fi
+        run: terraform init -input=false
 
       - name: 📋 Terraform Validate
         run: terraform validate -no-color
