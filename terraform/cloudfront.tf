@@ -10,15 +10,79 @@ locals {
   cf_func_name                      = "strip-api-prefix-${var.environment}"
 }
 
-# 1. CloudFront Function: Cắt bỏ tiền tố /api trước khi chuyển tới API Gateway
-resource "aws_cloudfront_function" "strip_api_prefix" {
-  name    = local.cf_func_name
+# 1. CloudFront Function: Edge WAF (Bảo vệ XSS, SQL Injection, Path Traversal)
+resource "aws_cloudfront_function" "edge_waf" {
+  name    = "edge-waf-filter"
   runtime = "cloudfront-js-2.0"
-  comment = "Cat bo tien to /api truoc khi chuyen tiep toi API Gateway REST"
+  comment = "Edge WAF: Ngan chan cac cuoc tan cong XSS, SQL Injection, Path Traversal"
   publish = true
   code    = <<-EOF
     function handler(event) {
         var request = event.request;
+        var qsString = "";
+        
+        if (request.querystring) {
+            var keys = Object.keys(request.querystring);
+            for (var i = 0; i < keys.length; i++) {
+                var k = keys[i];
+                if (request.querystring[k] && request.querystring[k].value) {
+                    qsString += " " + request.querystring[k].value.toLowerCase();
+                }
+            }
+        }
+        
+        var fullScan = request.uri.toLowerCase() + qsString;
+        
+        if (fullScan.indexOf("<script") !== -1 || fullScan.indexOf("%3cscript") !== -1 ||
+            fullScan.indexOf("union select") !== -1 || fullScan.indexOf("union%20select") !== -1 ||
+            fullScan.indexOf("or 1=1") !== -1 || fullScan.indexOf("or%201%3d1") !== -1 ||
+            fullScan.indexOf("../") !== -1 || fullScan.indexOf("..%2f") !== -1) {
+            
+            return {
+                statusCode: 403,
+                statusDescription: "Forbidden - Blocked by Edge WAF"
+            };
+        }
+        
+        return request;
+    }
+  EOF
+}
+
+# 2. CloudFront Function: Edge WAF & Cắt bỏ tiền tố /api trước khi chuyển tới API Gateway
+resource "aws_cloudfront_function" "strip_api_prefix" {
+  name    = local.cf_func_name
+  runtime = "cloudfront-js-2.0"
+  comment = "Edge WAF & Cat bo tien to /api truoc khi chuyen tiep toi API Gateway REST"
+  publish = true
+  code    = <<-EOF
+    function handler(event) {
+        var request = event.request;
+        var qsString = "";
+        
+        if (request.querystring) {
+            var keys = Object.keys(request.querystring);
+            for (var i = 0; i < keys.length; i++) {
+                var k = keys[i];
+                if (request.querystring[k] && request.querystring[k].value) {
+                    qsString += " " + request.querystring[k].value.toLowerCase();
+                }
+            }
+        }
+        
+        var fullScan = request.uri.toLowerCase() + qsString;
+        
+        if (fullScan.indexOf("<script") !== -1 || fullScan.indexOf("%3cscript") !== -1 ||
+            fullScan.indexOf("union select") !== -1 || fullScan.indexOf("union%20select") !== -1 ||
+            fullScan.indexOf("or 1=1") !== -1 || fullScan.indexOf("or%201%3d1") !== -1 ||
+            fullScan.indexOf("../") !== -1 || fullScan.indexOf("..%2f") !== -1) {
+            
+            return {
+                statusCode: 403,
+                statusDescription: "Forbidden - Blocked by Edge WAF"
+            };
+        }
+
         request.uri = request.uri.replace(/^\/api/, '');
         if (request.uri === '') {
             request.uri = '/';
@@ -87,6 +151,12 @@ resource "aws_cloudfront_distribution" "main" {
     compress                 = true
     cache_policy_id          = local.managed_caching_disabled_id
     origin_request_policy_id = local.managed_all_viewer_except_host_id
+
+    # Edge WAF chặn XSS, SQL Injection, Path Traversal
+    function_association {
+      event_type   = "viewer-request"
+      function_arn = aws_cloudfront_function.edge_waf.arn
+    }
   }
 
   # Ordered Behavior 1: Phục vụ Static Assets từ S3 (_next/*) với Cache tối ưu

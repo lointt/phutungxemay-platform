@@ -4,6 +4,7 @@
 
 import { NextResponse } from 'next/server';
 import { getServerAdminToken, setServerAdminToken, readTokenFromFile } from '@/lib/server-admin-store';
+import { serverAdminTokenSchema } from '@/lib/validators';
 
 export async function GET() {
   const token = getServerAdminToken();
@@ -17,12 +18,22 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
-    const body = (await req.json()) as { idToken?: string; email?: string };
-    if (!body?.idToken) {
-      return NextResponse.json({ error: 'idToken is required' }, { status: 400 });
+    const rawBody: unknown = await req.json().catch(() => null);
+    
+    // Kiểm tra & xác thực Zod
+    const validationResult = serverAdminTokenSchema.safeParse(rawBody);
+    if (!validationResult.success) {
+      return NextResponse.json(
+        {
+          error: 'Dữ liệu token không hợp lệ',
+          details: validationResult.error.format(),
+        },
+        { status: 400 },
+      );
     }
 
-    setServerAdminToken(body.idToken, body.email);
+    const { idToken, email } = validationResult.data;
+    setServerAdminToken(idToken, email);
     return NextResponse.json({ success: true, message: 'Admin token saved successfully' });
   } catch (err) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });

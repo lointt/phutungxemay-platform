@@ -360,3 +360,15 @@ resource "aws_api_gateway_stage" "prod" {
   rest_api_id   = aws_api_gateway_rest_api.rest_api.id
   stage_name    = "prod"
 }
+
+# Cấu hình Throttling giới hạn tốc độ 50 req/s cho toàn bộ REST API
+resource "aws_api_gateway_method_settings" "all" {
+  rest_api_id = aws_api_gateway_rest_api.rest_api.id
+  stage_name  = aws_api_gateway_stage.prod.stage_name
+  method_path = "*/*"
+
+  settings {
+    throttling_rate_limit  = 50
+    throttling_burst_limit = 100
+  }
+}

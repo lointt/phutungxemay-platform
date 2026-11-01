@@ -5,27 +5,27 @@
 
 import { NextResponse } from 'next/server';
 import { getServerAdminToken } from '@/lib/server-admin-store';
+import { inventoryDeductSchema } from '@/lib/validators';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'https://d1yvm1htsd670r.cloudfront.net';
 
-interface DeductItem {
-  product_id: string;
-  quantity: number;
-}
-
-interface RequestBody {
-  items: DeductItem[];
-  clientAdminToken?: string;
-}
-
 export async function POST(req: Request) {
   try {
-    const body = (await req.json()) as RequestBody;
-    const { items, clientAdminToken } = body;
-
-    if (!Array.isArray(items) || items.length === 0) {
-      return NextResponse.json({ error: 'Danh sách sản phẩm không hợp lệ' }, { status: 400 });
+    const rawBody: unknown = await req.json().catch(() => null);
+    
+    // Kiểm tra và xác thực dữ liệu đầu vào bằng Zod
+    const validationResult = inventoryDeductSchema.safeParse(rawBody);
+    if (!validationResult.success) {
+      return NextResponse.json(
+        {
+          error: 'Dữ liệu không hợp lệ',
+          details: validationResult.error.format(),
+        },
+        { status: 400 },
+      );
     }
+
+    const { items, clientAdminToken } = validationResult.data;
 
     // Ưu tiên token truyền từ client nếu có, sau đó đến token lưu trên server
     const headerToken = req.headers.get('x-admin-token');
