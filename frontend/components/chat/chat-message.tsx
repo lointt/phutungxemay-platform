@@ -57,9 +57,54 @@ export function ChatMessage({ message }: ChatMessageProps) {
             {renderMarkdownContent(message.content, isUser)}
           </div>
 
-          {/* Embedded Recommended Product from RAG */}
-          {message.embeddedProduct && (
+          {/* Embedded Recommended Product(s) from RAG */}
+          {message.embeddedProducts && message.embeddedProducts.length > 0 ? (
+            <div className="space-y-2 mt-2">
+              {message.embeddedProducts.map((p, idx) => (
+                <ChatProductEmbed key={`${p.product_id}-${idx}`} product={p} />
+              ))}
+            </div>
+          ) : message.embeddedProduct ? (
             <ChatProductEmbed product={message.embeddedProduct} />
+          ) : null}
+
+          {/* Trích dẫn tài liệu tham chiếu (Sources) */}
+          {message.sources && message.sources.length > 0 && (
+            <div className="mt-2.5 pt-2 border-t border-slate-100 flex flex-wrap items-center gap-1.5 text-[11px] text-slate-500">
+              <span className="font-semibold text-slate-600">📚 Tham chiếu:</span>
+              {message.sources.map((src, i) => (
+                <span
+                  key={i}
+                  className="inline-flex items-center px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 font-mono text-[10px]"
+                >
+                  {src}
+                </span>
+              ))}
+            </div>
+          )}
+
+          {/* Ticket chuyển nhân viên CSKH (Human Handover) */}
+          {message.handoverTicket && (
+            <div className="mt-2.5 p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-start gap-2">
+              <span className="text-base">🎫</span>
+              <div>
+                <p className="font-bold text-amber-950">Đã kết nối nhân viên CSKH</p>
+                <p className="text-[11px] text-amber-800 mt-0.5">
+                  Mã hỗ trợ:{' '}
+                  <code className="font-mono font-bold bg-white px-1.5 py-0.5 rounded border border-amber-300">
+                    {message.handoverTicket}
+                  </code>
+                  . Nhân viên kỹ thuật sẽ kiểm tra và phản hồi sớm nhất.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Thông báo cập nhật giỏ hàng */}
+          {message.cartUpdated && (
+            <div className="mt-2 p-2 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-1.5 font-medium">
+              <span>🛒</span> Giỏ hàng đã được cập nhật tự động!
+            </div>
           )}
 
           {/* Time */}

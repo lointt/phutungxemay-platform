@@ -1,0 +1,89 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ChatbotTopics",
+      "Effect": "Allow",
+      "Action": [
+        "sns:CreateTopic",
+        "sns:DeleteTopic",
+        "sns:GetTopicAttributes",
+        "sns:SetTopicAttributes",
+        "sns:Subscribe",
+        "sns:Unsubscribe",
+        "sns:ListSubscriptionsByTopic",
+        "sns:Publish",
+        "sns:TagResource"
+      ],
+      "Resource": [
+        "arn:aws:sns:ap-southeast-1:<ACCOUNT_ID>:chat*"
+      ]
+    },
+    {
+      "Sid": "ListTopics",
+      "Effect": "Allow",
+      "Action": [
+        "sns:ListTopics"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "ChatbotEventRules",
+      "Effect": "Allow",
+      "Action": [
+        "events:PutRule",
+        "events:DeleteRule",
+        "events:DescribeRule",
+        "events:EnableRule",
+        "events:DisableRule",
+        "events:PutTargets",
+        "events:RemoveTargets",
+        "events:ListTargetsByRule",
+        "events:TagResource",
+        "events:CreateEventBus",
+        "events:DescribeEventBus",
+        "events:PutEvents"
+      ],
+      "Resource": [
+        "arn:aws:events:ap-southeast-1:<ACCOUNT_ID>:rule/chat*",
+        "arn:aws:events:ap-southeast-1:<ACCOUNT_ID>:rule/*/chat*",
+        "arn:aws:events:ap-southeast-1:<ACCOUNT_ID>:event-bus/chat*",
+        "arn:aws:events:ap-southeast-1:<ACCOUNT_ID>:event-bus/default"
+      ]
+    },
+    {
+      "Sid": "ListRules",
+      "Effect": "Allow",
+      "Action": [
+        "events:ListRules"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "ChatbotSchedules",
+      "Effect": "Allow",
+      "Action": [
+        "scheduler:CreateSchedule",
+        "scheduler:GetSchedule",
+        "scheduler:UpdateSchedule",
+        "scheduler:DeleteSchedule",
+        "scheduler:CreateScheduleGroup",
+        "scheduler:GetScheduleGroup",
+        "scheduler:TagResource"
+      ],
+      "Resource": [
+        "arn:aws:scheduler:ap-southeast-1:<ACCOUNT_ID>:schedule/*/chat*",
+        "arn:aws:scheduler:ap-southeast-1:<ACCOUNT_ID>:schedule-group/chat*"
+      ]
+    },
+    {
+      "Sid": "ListSchedules",
+      "Effect": "Allow",
+      "Action": [
+        "scheduler:ListSchedules",
+        "scheduler:ListScheduleGroups"
+      ],
+      "Resource": "*"
+    }
+  ]
+}

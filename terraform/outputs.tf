@@ -51,3 +51,23 @@ output "event_bus_name" {
   description = "Tên của Amazon EventBridge Event Bus"
   value       = aws_cloudwatch_event_bus.ecommerce_bus.name
 }
+
+output "chatbot_websocket_url" {
+  description = "URL kết nối WebSocket AI Chatbot (RAG v2)"
+  value       = aws_apigatewayv2_stage.chatbot_dev_stage.invoke_url
+}
+
+output "store_policies_table_name" {
+  description = "Tên bảng DynamoDB StorePolicies_Replica"
+  value       = aws_dynamodb_table.store_policies.name
+}
+
+output "chatbot_sessions_table_name" {
+  description = "Tên bảng DynamoDB chatbot-sessions"
+  value       = aws_dynamodb_table.chatbot_sessions.name
+}
+
+output "chatbot_kb_bucket_name" {
+  description = "Tên S3 Bucket lưu trữ Vector Knowledge Base"
+  value       = aws_s3_bucket.chatbot_kb.bucket
+}

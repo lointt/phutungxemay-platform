@@ -1,0 +1,45 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ManageAndLoadChatbotTables",
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:CreateTable",
+        "dynamodb:DescribeTable",
+        "dynamodb:UpdateTable",
+        "dynamodb:DeleteTable",
+        "dynamodb:UpdateTimeToLive",
+        "dynamodb:DescribeTimeToLive",
+        "dynamodb:TagResource",
+        "dynamodb:Scan",
+        "dynamodb:Query",
+        "dynamodb:GetItem",
+        "dynamodb:PutItem",
+        "dynamodb:BatchWriteItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:DeleteItem"
+      ],
+      "Resource": [
+        "arn:aws:dynamodb:ap-southeast-1:<ACCOUNT_ID>:table/Products",
+        "arn:aws:dynamodb:ap-southeast-1:<ACCOUNT_ID>:table/Carts",
+        "arn:aws:dynamodb:ap-southeast-1:<ACCOUNT_ID>:table/Orders",
+        "arn:aws:dynamodb:ap-southeast-1:<ACCOUNT_ID>:table/Users",
+        "arn:aws:dynamodb:ap-southeast-1:<ACCOUNT_ID>:table/chatbot-sessions",
+        "arn:aws:dynamodb:ap-southeast-1:<ACCOUNT_ID>:table/Products/index/*",
+        "arn:aws:dynamodb:ap-southeast-1:<ACCOUNT_ID>:table/Carts/index/*",
+        "arn:aws:dynamodb:ap-southeast-1:<ACCOUNT_ID>:table/Orders/index/*",
+        "arn:aws:dynamodb:ap-southeast-1:<ACCOUNT_ID>:table/Users/index/*",
+        "arn:aws:dynamodb:ap-southeast-1:<ACCOUNT_ID>:table/chatbot-sessions/index/*"
+      ]
+    },
+    {
+      "Sid": "ListTables",
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:ListTables"
+      ],
+      "Resource": "*"
+    }
+  ]
+}

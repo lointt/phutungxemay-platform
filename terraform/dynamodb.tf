@@ -119,3 +119,55 @@ resource "aws_dynamodb_table" "users" {
     ManagedBy   = "Terraform"
   }
 }
+
+# 5. Bảng StorePolicies (Chính sách cửa hàng & Tri thức KB cho RAG Chatbot)
+resource "aws_dynamodb_table" "store_policies" {
+  name         = "StorePolicies${local.table_suffix}"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "PolicyID"
+
+  attribute {
+    name = "PolicyID"
+    type = "S"
+  }
+
+  stream_enabled   = true
+  stream_view_type = "NEW_AND_OLD_IMAGES"
+
+  point_in_time_recovery {
+    enabled = true
+  }
+
+  tags = {
+    Name        = "DynamoDB-StorePolicies-${var.environment}"
+    Environment = var.environment
+    ManagedBy   = "Terraform"
+  }
+}
+
+# 6. Bảng chatbot-sessions (Lịch sử hội thoại & Rate-limit cho Chatbot)
+resource "aws_dynamodb_table" "chatbot_sessions" {
+  name         = "chatbot-sessions"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "session_id"
+
+  attribute {
+    name = "session_id"
+    type = "S"
+  }
+
+  ttl {
+    attribute_name = "expires_at"
+    enabled        = true
+  }
+
+  point_in_time_recovery {
+    enabled = true
+  }
+
+  tags = {
+    Name        = "DynamoDB-ChatbotSessions-${var.environment}"
+    Environment = var.environment
+    ManagedBy   = "Terraform"
+  }
+}

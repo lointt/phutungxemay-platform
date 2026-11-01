@@ -1,0 +1,75 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ManageChatbotRoles",
+      "Effect": "Allow",
+      "Action": [
+        "iam:CreateRole",
+        "iam:DeleteRole",
+        "iam:GetRole",
+        "iam:UpdateAssumeRolePolicy",
+        "iam:TagRole",
+        "iam:UntagRole",
+        "iam:PutRolePolicy",
+        "iam:GetRolePolicy",
+        "iam:DeleteRolePolicy",
+        "iam:ListRolePolicies",
+        "iam:AttachRolePolicy",
+        "iam:DetachRolePolicy",
+        "iam:ListAttachedRolePolicies"
+      ],
+      "Resource": [
+        "arn:aws:iam::<ACCOUNT_ID>:role/chat-*",
+        "arn:aws:iam::<ACCOUNT_ID>:role/chatbot-*"
+      ]
+    },
+    {
+      "Sid": "ManageChatbotPolicies",
+      "Effect": "Allow",
+      "Action": [
+        "iam:CreatePolicy",
+        "iam:DeletePolicy",
+        "iam:GetPolicy",
+        "iam:GetPolicyVersion",
+        "iam:ListPolicyVersions",
+        "iam:CreatePolicyVersion",
+        "iam:DeletePolicyVersion"
+      ],
+      "Resource": [
+        "arn:aws:iam::<ACCOUNT_ID>:policy/chatbot-*"
+      ]
+    },
+    {
+      "Sid": "PassRoleOnlyToChatbotServices",
+      "Effect": "Allow",
+      "Action": [
+        "iam:PassRole"
+      ],
+      "Resource": [
+        "arn:aws:iam::<ACCOUNT_ID>:role/chat-*",
+        "arn:aws:iam::<ACCOUNT_ID>:role/chatbot-*"
+      ],
+      "Condition": {
+        "StringEquals": {
+          "iam:PassedToService": [
+            "lambda.amazonaws.com",
+            "scheduler.amazonaws.com",
+            "events.amazonaws.com",
+            "apigateway.amazonaws.com",
+            "cloudformation.amazonaws.com"
+          ]
+        }
+      }
+    },
+    {
+      "Sid": "ReadOnlyIdentity",
+      "Effect": "Allow",
+      "Action": [
+        "iam:ListRoles",
+        "iam:GetAccountSummary"
+      ],
+      "Resource": "*"
+    }
+  ]
+}

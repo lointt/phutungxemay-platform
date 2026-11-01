@@ -206,13 +206,35 @@ export function useWebSocketChat() {
         setIsThinking(false);
         try {
           const data = JSON.parse(event.data) as WebSocketResponse;
-          if (data.response) {
+          const text = data.answer || data.response;
+          if (text) {
+            // Map products array từ Lambda RAG v2
+            const mappedProducts: ProductSummary[] = [];
+            if (Array.isArray(data.products) && data.products.length > 0) {
+              for (const p of data.products) {
+                mappedProducts.push({
+                  product_id: p.ProductID || p.product_id || '',
+                  name: p.name,
+                  price: p.price,
+                  stock: p.stock ?? 10,
+                  image_url: p.image_url || '',
+                  category: '',
+                });
+              }
+            } else if (data.product) {
+              mappedProducts.push(data.product);
+            }
+
             const aiMsg: ChatMessage = {
               id: `msg-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
               role: 'model',
-              content: data.response,
+              content: text,
               timestamp: Date.now(),
-              embeddedProduct: data.product,
+              embeddedProduct: mappedProducts[0],
+              embeddedProducts: mappedProducts.length > 0 ? mappedProducts : undefined,
+              sources: data.sources && data.sources.length > 0 ? data.sources : undefined,
+              handoverTicket: data.handover_ticket,
+              cartUpdated: data.cart_updated,
             };
             setMessages((prev) => [...prev, aiMsg]);
           }
@@ -314,8 +336,10 @@ export function useWebSocketChat() {
       // 2. Nếu không phải tra cứu đơn hàng, gửi qua WebSocket AI
       const payload: WebSocketPayload = {
         action: 'sendMessage',
-        message: trimmed,
+        question: trimmed,
         session_id: getSessionId(),
+        user_id: user?.userId || undefined,
+        message: trimmed,
       };
 
       let sent = false;
@@ -328,33 +352,35 @@ export function useWebSocketChat() {
         }
       }
 
-      // Xử lý thông minh: Dự phòng chuyên gia Kỹ Sư AI trả lời sau 2.5s nếu socket không phản hồi
-      const lower = trimmed.toLowerCase();
-      const matched = KNOWLEDGE_BASE.find((k) =>
-        k.keywords.some((kw) => lower.includes(kw)),
-      );
-
+      // Xử lý timeout an toàn: Chỉ kích hoạt sau 25s nếu kết nối gián đoạn
       const fallbackTimer = setTimeout(() => {
-        setIsThinking(false);
-        if (matched) {
-          const fallbackMsg: ChatMessage = {
-            id: `ai-kb-${Date.now()}`,
-            role: 'model',
-            content: matched.reply,
-            timestamp: Date.now(),
-            embeddedProduct: matched.product,
-          };
-          setMessages((prev) => [...prev, fallbackMsg]);
-        } else if (!sent) {
-          const defaultReply: ChatMessage = {
-            id: `ai-gen-${Date.now()}`,
-            role: 'model',
-            content: `Cảm ơn bạn đã hỏi về: **"${trimmed}"**.\n\nKỹ Sư AI đã ghi nhận câu hỏi. Bạn có thể cho biết thêm **hãng xe và đời xe** bạn đang sử dụng (ví dụ: *Honda Wave Alpha 2021*, *Yamaha Exciter 150 2019*, *Honda SH 150i*,...) hoặc mã phụ tùng để tôi kiểm tra chính xác nhé!`,
-            timestamp: Date.now(),
-          };
-          setMessages((prev) => [...prev, defaultReply]);
-        }
-      }, 2500);
+        setIsThinking((thinking) => {
+          if (!thinking) return false;
+          const lower = trimmed.toLowerCase();
+          const matched = KNOWLEDGE_BASE.find((k) =>
+            k.keywords.some((kw) => lower.includes(kw)),
+          );
+          if (matched) {
+            const fallbackMsg: ChatMessage = {
+              id: `ai-kb-${Date.now()}`,
+              role: 'model',
+              content: matched.reply,
+              timestamp: Date.now(),
+              embeddedProduct: matched.product,
+            };
+            setMessages((prev) => [...prev, fallbackMsg]);
+          } else if (!sent) {
+            const defaultReply: ChatMessage = {
+              id: `ai-gen-${Date.now()}`,
+              role: 'model',
+              content: `Hệ thống AI đang xử lý hoặc kết nối gián đoạn. Bạn vui lòng thử lại sau giây lát hoặc liên hệ hotline để được hỗ trợ ngay.`,
+              timestamp: Date.now(),
+            };
+            setMessages((prev) => [...prev, defaultReply]);
+          }
+          return false;
+        });
+      }, 25000);
 
       return () => clearTimeout(fallbackTimer);
     },

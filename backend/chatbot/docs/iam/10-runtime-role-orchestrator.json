@@ -1,0 +1,73 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "Logs",
+      "Effect": "Allow",
+      "Action": [
+        "logs:CreateLogGroup",
+        "logs:CreateLogStream",
+        "logs:PutLogEvents"
+      ],
+      "Resource": [
+        "arn:aws:logs:ap-southeast-1:<ACCOUNT_ID>:log-group:/aws/lambda/chat-orchestrator*:*"
+      ]
+    },
+    {
+      "Sid": "ChatbotTables",
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:GetItem",
+        "dynamodb:PutItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:Query"
+      ],
+      "Resource": [
+        "arn:aws:dynamodb:ap-southeast-1:<ACCOUNT_ID>:table/Products",
+        "arn:aws:dynamodb:ap-southeast-1:<ACCOUNT_ID>:table/Carts",
+        "arn:aws:dynamodb:ap-southeast-1:<ACCOUNT_ID>:table/Users",
+        "arn:aws:dynamodb:ap-southeast-1:<ACCOUNT_ID>:table/chatbot-sessions"
+      ]
+    },
+    {
+      "Sid": "ReadVectors",
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject"
+      ],
+      "Resource": [
+        "arn:aws:s3:::<TEN_BUCKET>/vectors/*"
+      ]
+    },
+    {
+      "Sid": "ReadGeminiKey",
+      "Effect": "Allow",
+      "Action": [
+        "ssm:GetParameter"
+      ],
+      "Resource": [
+        "arn:aws:ssm:ap-southeast-1:<ACCOUNT_ID>:parameter/chatbot/gemini_api_key"
+      ]
+    },
+    {
+      "Sid": "HandoverEvent",
+      "Effect": "Allow",
+      "Action": [
+        "events:PutEvents"
+      ],
+      "Resource": [
+        "arn:aws:events:ap-southeast-1:<ACCOUNT_ID>:event-bus/*"
+      ]
+    },
+    {
+      "Sid": "ReplyToWebSocket",
+      "Effect": "Allow",
+      "Action": [
+        "execute-api:ManageConnections"
+      ],
+      "Resource": [
+        "arn:aws:execute-api:ap-southeast-1:<ACCOUNT_ID>:<API_ID>/*/POST/@connections/*"
+      ]
+    }
+  ]
+}

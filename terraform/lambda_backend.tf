@@ -103,6 +103,35 @@ resource "aws_iam_policy" "backend_permissions_policy" {
         Resource = [
           "${aws_s3_bucket.product_images.arn}/*"
         ]
+      },
+      {
+        Sid      = "SSMParameterAccess"
+        Effect   = "Allow"
+        Action   = [
+          "ssm:GetParameter",
+          "ssm:GetParameters",
+          "ssm:GetParametersByPath"
+        ]
+        Resource = [
+          "arn:aws:ssm:${var.aws_region}:*:parameter/ecommerce/*",
+          "arn:aws:ssm:${var.aws_region}:*:parameter/chatbot/*"
+        ]
+      },
+      {
+        Sid      = "StorePoliciesAccess"
+        Effect   = "Allow"
+        Action   = [
+          "dynamodb:GetItem",
+          "dynamodb:PutItem",
+          "dynamodb:UpdateItem",
+          "dynamodb:DeleteItem",
+          "dynamodb:Query",
+          "dynamodb:Scan"
+        ]
+        Resource = [
+          aws_dynamodb_table.store_policies.arn,
+          "${aws_dynamodb_table.store_policies.arn}/*"
+        ]
       }
     ]
   })

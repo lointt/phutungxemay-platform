@@ -1,0 +1,14 @@
+# Bí mật và dữ liệu thật: KHÔNG đưa lên git
+.env
+*.pem
+*.key
+export/
+export.zip
+out/
+# Rác
+__pycache__/
+*.pyc
+.venv/
+.ipynb_checkpoints/
+.DS_Store
+*.zip
