@@ -10,7 +10,6 @@ import { useEffect, useRef, useState } from 'react';
 import { useWebSocketChat } from '@/hooks/use-websocket-chat';
 import { cn } from '@/lib/utils';
 import { ChatMessage } from './chat-message';
-import { QuickPrompts } from './quick-prompts';
 
 interface ChatWindowProps {
   onClose?: () => void;
@@ -184,10 +183,7 @@ export function ChatWindow({ onClose, isStandalone = false, initialPrompt }: Cha
         <div ref={messagesEndRef} />
       </div>
 
-      {/* ── Quick Prompts ───────────────────────────────────────────────────── */}
-      <div className="bg-white border-t border-slate-100 px-3 py-1.5 flex-shrink-0">
-        <QuickPrompts onSelectPrompt={handleSelectPrompt} disabled={isThinking} />
-      </div>
+
 
       {/* ── Input Box Form ──────────────────────────────────────────────────── */}
       <form

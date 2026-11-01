@@ -3,6 +3,7 @@
 // ============================================================
 // components/chat/chat-product-embed.tsx
 // Card phụ tùng gợi ý nhúng trực tiếp trong bóng chat AI
+// Tự động đối chiếu mã ảnh thực tế và hiển thị fallback mượt mà
 // ============================================================
 
 import { useState } from 'react';
@@ -16,12 +17,40 @@ interface ChatProductEmbedProps {
   product: ProductSummary;
 }
 
+// Bảng đối chiếu ảnh thực tế khi bot trả mã giả lập từ RAG cũ
+const MOCK_IMAGE_FALLBACKS: Record<string, string> = {
+  PROD_SPARK_001: '/images/bugi-ngk-iridium-real.jpg',
+  PROD_SPARK_002: '/images/bugi-ngk-iridium-real.jpg',
+  PROD_OIL_001: '/images/motul-300v-real.jpg',
+  PROD_OIL_002: '/images/liqui-moly-scooter-real.jpg',
+  PROD_OIL_003: '/images/motul-300v-real.jpg',
+  PROD_BRAKE_001: '/images/elig-em050-real.jpg',
+  PROD_BRAKE_002: '/images/heo-dau-brembo-real.jpg',
+  PROD_BRAKE_003: '/images/dia-thang-rcb-real.jpg',
+  PROD_DRIVE_001: '/images/did-428hds-real.jpg',
+  PROD_DRIVE_002: '/images/nhong-sen-did-real.jpg',
+  PROD_DRIVE_003: '/images/day-curoa-bando-real.jpg',
+  PROD_SUSP_001: '/images/phuoc-yss-real.jpg',
+  PROD_SUSP_002: '/images/phuoc-rcb-vd-real.jpg',
+  PROD_TYRE_001: '/images/lop-michelin-pilot-real.jpg',
+  PROD_TYRE_002: '/images/lop-maxxis-khong-ruot-real.jpg',
+  PROD_BATT_001: '/images/ac-quy-globe-real.jpg',
+  PROD_LIGHT_001: '/images/den-led-osram-real.jpg',
+  PROD_EXHAUST_001: '/images/po-akrapovic-carbon-real.jpg',
+  PROD_FILTER_001: '/images/loc-gio-k-n-real.jpg',
+  PROD_ACC_001: '/images/kinh-hau-cnc-rcb-real.jpg',
+};
+
 export function ChatProductEmbed({ product }: ChatProductEmbedProps) {
   const { addToCart } = useCart();
   const [isAdding, setIsAdding] = useState(false);
   const [added, setAdded] = useState(false);
+  const [fallbackAttempted, setFallbackAttempted] = useState(false);
 
-  const imageUrl = product.image_url ? getImageUrl(product.image_url) : '';
+  const pid = product.product_id || (product as unknown as Record<string, string>).ProductID || '';
+  const initialUrl = product.image_url ? getImageUrl(product.image_url) : '';
+  const fallbackUrl = MOCK_IMAGE_FALLBACKS[pid] ? getImageUrl(MOCK_IMAGE_FALLBACKS[pid]) : '';
+  const displayUrl = fallbackAttempted ? fallbackUrl : (initialUrl || fallbackUrl);
 
   async function handleAddToCart(e: React.MouseEvent) {
     e.preventDefault();
@@ -33,7 +62,7 @@ export function ChatProductEmbed({ product }: ChatProductEmbedProps) {
         name: product.name,
         price: product.price,
         stock: product.stock,
-        image_url: product.image_url,
+        image_url: displayUrl || product.image_url,
       });
       setAdded(true);
       setTimeout(() => setAdded(false), 2500);
@@ -47,13 +76,19 @@ export function ChatProductEmbed({ product }: ChatProductEmbedProps) {
       <div className="flex items-center gap-3">
         {/* Product Thumbnail */}
         <div className="w-16 h-16 bg-white rounded-lg overflow-hidden relative flex-shrink-0 border border-slate-200/80">
-          {imageUrl ? (
+          {displayUrl ? (
             <Image
-              src={imageUrl}
+              src={displayUrl}
               alt={product.name}
               fill
+              unoptimized
               className="object-cover"
               sizes="64px"
+              onError={() => {
+                if (!fallbackAttempted && fallbackUrl && fallbackUrl !== initialUrl) {
+                  setFallbackAttempted(true);
+                }
+              }}
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center text-orange-500 bg-orange-50">
