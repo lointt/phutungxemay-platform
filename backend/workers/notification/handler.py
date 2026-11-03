@@ -9,6 +9,7 @@ SMTP_SERVER = os.environ.get("SMTP_SERVER", "smtp.gmail.com")
 SMTP_PORT = int(os.environ.get("SMTP_PORT", 465))
 SMTP_USER = os.environ.get("SMTP_USER", "")
 SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "").replace(" ", "")
+STAFF_EMAIL = os.environ.get("STAFF_EMAIL", "").strip() or SMTP_USER or "phutungxemay246@gmail.com"
 
 def format_currency(amount):
     """Format số tiền sang định dạng VND"""
@@ -180,7 +181,88 @@ def build_payment_success_template(detail):
     """
     return html
 
+def build_handover_requested_template(detail):
+    ticket_id = detail.get("ticket_id", "N/A")
+    session_id = detail.get("session_id", "N/A")
+    user_id = detail.get("user_id", "Khách chưa đăng nhập")
+    reason = detail.get("reason", "Khách hàng yêu cầu gặp nhân viên tư vấn")
+    question = detail.get("question", "N/A")
+    history_text = detail.get("history_text", "")
+    now_str = datetime.now(timezone.utc).strftime("%d/%m/%Y %H:%M:%S UTC")
+
+    history_html = ""
+    if history_text:
+        snippets = history_text.split(" | ")
+        for snip in snippets[-8:]:
+            if snip.strip():
+                history_html += f"<li style='margin-bottom: 6px; padding: 8px 12px; background: #f8fafc; border-radius: 4px; border-left: 3px solid #64748b; font-size: 13px;'>{snip.strip()}</li>"
+    else:
+        history_html = "<li style='color: #94a3b8; font-style: italic;'>Không có lịch sử hội thoại trước đó.</li>"
+
+    html = f"""
+    <!DOCTYPE html>
+    <html>
+    <head><meta charset="utf-8"></head>
+    <body style="font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background-color:#f8fafc;margin:0;padding:24px;">
+        <div style="max-width:650px;margin:auto;background:#ffffff;border-radius:12px;border:1px solid #e2e8f0;overflow:hidden;box-shadow:0 4px 6px rgba(0,0,0,0.05);">
+            <div style="background:linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);padding:24px;text-align:center;color:#ffffff;">
+                <h1 style="margin:0;font-size:22px;letter-spacing:0.5px;">🚨 YÊU CẦU HỖ TRỢ KHÁCH HÀNG (HUMAN HANDOVER)</h1>
+                <p style="margin:6px 0 0;font-size:14px;opacity:0.95;">Ticket ID: #{ticket_id}</p>
+            </div>
+            <div style="padding:24px;">
+                <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:16px;margin-bottom:20px;">
+                    <p style="margin:0;color:#991b1b;font-weight:600;font-size:15px;">
+                        ⚠️ Khách hàng đang cần nhân viên hỗ trợ trực tiếp trên Chatbot!
+                    </p>
+                    <p style="margin:6px 0 0;color:#7f1d1d;font-size:13px;">
+                        Lý do chuyển tiếp: <strong>{reason}</strong>
+                    </p>
+                </div>
+
+                <h3 style="color:#1e293b;border-bottom:2px solid #e2e8f0;padding-bottom:6px;margin-top:0;">Thông Tin Khách Hàng & Phiên Chat</h3>
+                <table style="width:100%;font-size:14px;border-collapse:collapse;margin-bottom:16px;">
+                    <tr><td style="padding:6px 0;color:#64748b;width:150px;">Mã Ticket:</td><td style="padding:6px 0;font-weight:700;color:#dc2626;">#{ticket_id}</td></tr>
+                    <tr><td style="padding:6px 0;color:#64748b;">Mã Khách Hàng:</td><td style="padding:6px 0;font-weight:600;color:#0f172a;">{user_id}</td></tr>
+                    <tr><td style="padding:6px 0;color:#64748b;">Session ID:</td><td style="padding:6px 0;font-family:monospace;font-size:13px;color:#334155;">{session_id}</td></tr>
+                    <tr><td style="padding:6px 0;color:#64748b;">Thời Gian Ghi Nhận:</td><td style="padding:6px 0;color:#0f172a;">{now_str}</td></tr>
+                </table>
+
+                <h3 style="color:#1e293b;border-bottom:2px solid #e2e8f0;padding-bottom:6px;">Câu Hỏi / Thắc Mắc Khách Vừa Hỏi</h3>
+                <div style="background:#f1f5f9;border-left:4px solid #3b82f6;padding:12px 16px;border-radius:0 6px 6px 0;font-size:14px;color:#1e293b;font-weight:500;margin-bottom:20px;">
+                    "{question}"
+                </div>
+
+                <h3 style="color:#1e293b;border-bottom:2px solid #e2e8f0;padding-bottom:6px;">Lịch Sử Hội Thoại Gần Nhất (Chat Context)</h3>
+                <ul style="list-style:none;padding:0;margin:0 0 20px 0;line-height:1.5;">
+                    {history_html}
+                </ul>
+
+                <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:14px;text-align:center;">
+                    <p style="margin:0;font-size:13px;color:#1e40af;">
+                        Vui lòng mở giao diện quản trị hoặc kết nối với khách qua phiên chat trên để hỗ trợ kịp thời.
+                    </p>
+                </div>
+            </div>
+            <div style="background:#f8fafc;padding:16px 24px;border-top:1px solid #e2e8f0;text-align:center;font-size:12px;color:#94a3b8;">
+                Notification Worker (Customer & Staff) | Cửa Hàng Phụ Tùng Xe Máy
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    return html
+
 def process_notification_event(detail_type, detail):
+    # Xử lý sự kiện Chuyển nhân viên tư vấn (Human Handover) từ Chatbot
+    if detail_type == "HumanHandoverRequested":
+        ticket_id = detail.get("ticket_id", "N/A")
+        recipient_email = STAFF_EMAIL
+        print(f"[NOTIFICATION] Bắt sự kiện 'HumanHandoverRequested' (Ticket #{ticket_id}) -> Gửi cảnh báo tới Staff Email: {recipient_email}")
+        subject = f"[HỖ TRỢ KHÁCH HÀNG KHẨN] Ticket #{ticket_id} - Yêu cầu nhân viên tư vấn"
+        html = build_handover_requested_template(detail)
+        send_email_smtp(recipient_email, subject, html)
+        return
+
     order_id = detail.get("order_id", "N/A")
     payment_method = str(detail.get("payment_method", "")).upper()
     shipping_addr = detail.get("shipping_address", {})

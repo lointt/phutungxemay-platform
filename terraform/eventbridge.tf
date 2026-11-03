@@ -23,11 +23,11 @@ resource "aws_cloudwatch_event_bus" "ecommerce_bus" {
 resource "aws_cloudwatch_event_rule" "order_notification_rule" {
   name           = "order-notification-rule-${var.environment}"
   event_bus_name = aws_cloudwatch_event_bus.ecommerce_bus.name
-  description    = "Bat su kien OrderPlaced va PaymentSuccess de gui email thong bao"
+  description    = "Bat su kien OrderPlaced, PaymentSuccess, OrderCancelled va HumanHandoverRequested de gui email thong bao (Khach hang & Nhan vien)"
 
   event_pattern = jsonencode({
-    source      = ["ecommerce.orders", "ecommerce.payments"]
-    detail-type = ["OrderPlaced", "PaymentSuccess", "OrderCancelled"]
+    source      = ["ecommerce.orders", "ecommerce.payments", "chatbot.orchestrator", "ecommerce.chatbot"]
+    detail-type = ["OrderPlaced", "PaymentSuccess", "OrderCancelled", "HumanHandoverRequested"]
   })
 
   tags = {
@@ -50,8 +50,8 @@ resource "aws_sqs_queue_policy" "notification_queue_policy" {
     Version = "2012-10-17"
     Statement = [
       {
-        Sid       = "AllowEventBridgeToSendMessages"
-        Effect    = "Allow"
+        Sid    = "AllowEventBridgeToSendMessages"
+        Effect = "Allow"
         Principal = {
           Service = "events.amazonaws.com"
         }
@@ -100,8 +100,8 @@ resource "aws_sqs_queue_policy" "inventory_queue_policy" {
     Version = "2012-10-17"
     Statement = [
       {
-        Sid       = "AllowEventBridgeToSendInventoryMessages"
-        Effect    = "Allow"
+        Sid    = "AllowEventBridgeToSendInventoryMessages"
+        Effect = "Allow"
         Principal = {
           Service = "events.amazonaws.com"
         }
@@ -150,8 +150,8 @@ resource "aws_sqs_queue_policy" "shipping_queue_policy" {
     Version = "2012-10-17"
     Statement = [
       {
-        Sid       = "AllowEventBridgeToSendShippingMessages"
-        Effect    = "Allow"
+        Sid    = "AllowEventBridgeToSendShippingMessages"
+        Effect = "Allow"
         Principal = {
           Service = "events.amazonaws.com"
         }

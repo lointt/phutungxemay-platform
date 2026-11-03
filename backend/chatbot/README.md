@@ -21,7 +21,7 @@ Khách (web) ── WebSocket ──> API Gateway ──> Lambda chat-receiver �
 - Chống lạm dụng: giới hạn theo phiên, theo kết nối và theo ngày (DynamoDB).
 - Đo được: cold start khoảng 6,8 giây, bộ nhớ dùng 142 MB, các lượt sau 0,3-3 giây (khi Gemini ổn định).
 
-- Chuyển nhân viên: công cụ `request_human_agent` phát sự kiện `HumanHandoverRequested` lên EventBridge; Lambda `chat-handover-mailer` (stack `infra/chatbot_mailer.yaml`) gửi email qua Gmail SMTP bằng mật khẩu ứng dụng lưu trong SSM. Thay cho SNS vì SNS gửi thư mang nhãn "AWS Notification".
+- Chuyển nhân viên: công cụ `request_human_agent` phát sự kiện `HumanHandoverRequested` lên EventBridge (`ecommerce-event-bus`); `NotificationWorker` (Customer & Staff) bắt sự kiện từ SQS Queue và gửi email trực tiếp cho nhân viên/admin qua Gmail SMTP. Thay thế việc duy trì stack `chat-handover-mailer` riêng để quy về Notification Domain thống nhất.
 - Tư vấn theo xe: hỏi giá, tồn kho thì trả lời ngay không bắt khai xe; sản phẩm Universal không cần hỏi xe; chỉ hỏi xe khi mua hoặc thêm giỏ (từ bản v6).
 - Khi Gemini quá tải, chế độ dự phòng trả đoạn tài liệu chính sách trước cho câu hỏi bảo hành, đổi trả, vận chuyển; câu hỏi sản phẩm vẫn liệt kê sản phẩm.
 
