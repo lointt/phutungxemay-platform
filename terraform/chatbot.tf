@@ -131,9 +131,9 @@ resource "aws_iam_role_policy" "chatbot_receiver_policy" {
     Version = "2012-10-17"
     Statement = [
       {
-        Sid      = "CloudWatchLogs"
-        Effect   = "Allow"
-        Action   = [
+        Sid    = "CloudWatchLogs"
+        Effect = "Allow"
+        Action = [
           "logs:CreateLogGroup",
           "logs:CreateLogStream",
           "logs:PutLogEvents"
@@ -141,9 +141,9 @@ resource "aws_iam_role_policy" "chatbot_receiver_policy" {
         Resource = "arn:aws:logs:*:*:*"
       },
       {
-        Sid      = "InvokeOrchestrator"
-        Effect   = "Allow"
-        Action   = [
+        Sid    = "InvokeOrchestrator"
+        Effect = "Allow"
+        Action = [
           "lambda:InvokeFunction"
         ]
         Resource = [
@@ -180,9 +180,9 @@ resource "aws_iam_role_policy" "chatbot_orchestrator_policy" {
     Version = "2012-10-17"
     Statement = [
       {
-        Sid      = "CloudWatchLogs"
-        Effect   = "Allow"
-        Action   = [
+        Sid    = "CloudWatchLogs"
+        Effect = "Allow"
+        Action = [
           "logs:CreateLogGroup",
           "logs:CreateLogStream",
           "logs:PutLogEvents"
@@ -190,9 +190,9 @@ resource "aws_iam_role_policy" "chatbot_orchestrator_policy" {
         Resource = "arn:aws:logs:*:*:*"
       },
       {
-        Sid      = "DynamoDBReadWriteAccess"
-        Effect   = "Allow"
-        Action   = [
+        Sid    = "DynamoDBReadWriteAccess"
+        Effect = "Allow"
+        Action = [
           "dynamodb:GetItem",
           "dynamodb:PutItem",
           "dynamodb:UpdateItem",
@@ -213,9 +213,9 @@ resource "aws_iam_role_policy" "chatbot_orchestrator_policy" {
         ]
       },
       {
-        Sid      = "S3VectorKBAccess"
-        Effect   = "Allow"
-        Action   = [
+        Sid    = "S3VectorKBAccess"
+        Effect = "Allow"
+        Action = [
           "s3:GetObject"
         ]
         Resource = [
@@ -223,9 +223,9 @@ resource "aws_iam_role_policy" "chatbot_orchestrator_policy" {
         ]
       },
       {
-        Sid      = "SSMGeminiKeyAccess"
-        Effect   = "Allow"
-        Action   = [
+        Sid    = "SSMGeminiKeyAccess"
+        Effect = "Allow"
+        Action = [
           "ssm:GetParameter",
           "ssm:GetParameters"
         ]
@@ -234,9 +234,9 @@ resource "aws_iam_role_policy" "chatbot_orchestrator_policy" {
         ]
       },
       {
-        Sid      = "ApiGatewayManageConnections"
-        Effect   = "Allow"
-        Action   = [
+        Sid    = "ApiGatewayManageConnections"
+        Effect = "Allow"
+        Action = [
           "execute-api:ManageConnections"
         ]
         Resource = [
@@ -244,9 +244,9 @@ resource "aws_iam_role_policy" "chatbot_orchestrator_policy" {
         ]
       },
       {
-        Sid      = "EventBridgePublishHandover"
-        Effect   = "Allow"
-        Action   = [
+        Sid    = "EventBridgePublishHandover"
+        Effect = "Allow"
+        Action = [
           "events:PutEvents"
         ]
         Resource = [
@@ -283,9 +283,9 @@ resource "aws_iam_role_policy" "sync_to_kb_policy" {
     Version = "2012-10-17"
     Statement = [
       {
-        Sid      = "CloudWatchLogs"
-        Effect   = "Allow"
-        Action   = [
+        Sid    = "CloudWatchLogs"
+        Effect = "Allow"
+        Action = [
           "logs:CreateLogGroup",
           "logs:CreateLogStream",
           "logs:PutLogEvents"
@@ -293,9 +293,9 @@ resource "aws_iam_role_policy" "sync_to_kb_policy" {
         Resource = "arn:aws:logs:*:*:*"
       },
       {
-        Sid      = "DynamoDBStreamsAccess"
-        Effect   = "Allow"
-        Action   = [
+        Sid    = "DynamoDBStreamsAccess"
+        Effect = "Allow"
+        Action = [
           "dynamodb:GetRecords",
           "dynamodb:GetShardIterator",
           "dynamodb:DescribeStream",
@@ -307,9 +307,9 @@ resource "aws_iam_role_policy" "sync_to_kb_policy" {
         ]
       },
       {
-        Sid      = "DynamoDBReadAccess"
-        Effect   = "Allow"
-        Action   = [
+        Sid    = "DynamoDBReadAccess"
+        Effect = "Allow"
+        Action = [
           "dynamodb:Scan",
           "dynamodb:Query",
           "dynamodb:GetItem"
@@ -320,9 +320,9 @@ resource "aws_iam_role_policy" "sync_to_kb_policy" {
         ]
       },
       {
-        Sid      = "S3VectorKBWriteAccess"
-        Effect   = "Allow"
-        Action   = [
+        Sid    = "S3VectorKBWriteAccess"
+        Effect = "Allow"
+        Action = [
           "s3:PutObject",
           "s3:GetObject"
         ]
@@ -331,18 +331,34 @@ resource "aws_iam_role_policy" "sync_to_kb_policy" {
         ]
       },
       {
-        Sid      = "SSMGeminiKeyAccess"
-        Effect   = "Allow"
-        Action   = [
+        Sid    = "SSMGeminiKeyAccess"
+        Effect = "Allow"
+        Action = [
           "ssm:GetParameter",
           "ssm:GetParameters"
         ]
         Resource = [
           "arn:aws:ssm:${var.aws_region}:*:parameter/chatbot/*"
         ]
+      },
+      {
+        Sid    = "SQSDLQAccess"
+        Effect = "Allow"
+        Action = [
+          "sqs:SendMessage"
+        ]
+        Resource = [
+          aws_sqs_queue.sync_dlq.arn
+        ]
       }
     ]
   })
+}
+
+# Dead Letter Queue cho DataSyncToKB
+resource "aws_sqs_queue" "sync_dlq" {
+  name                      = "chatbot-sync-dlq-${local.env_title}"
+  message_retention_seconds = 1209600 # 14 ngày
 }
 
 # ==============================================================================
@@ -448,7 +464,7 @@ resource "aws_lambda_function" "sync_to_kb" {
   runtime          = "python3.12"
   handler          = "lambda_function.lambda_handler"
   memory_size      = 512
-  timeout          = 60
+  timeout          = 120
   filename         = data.archive_file.sync_to_kb_zip.output_path
   source_code_hash = data.archive_file.sync_to_kb_zip.output_base64sha256
 
@@ -463,6 +479,9 @@ resource "aws_lambda_function" "sync_to_kb" {
       PRODUCTS_TABLE   = aws_dynamodb_table.products.name
       POLICIES_TABLE   = aws_dynamodb_table.store_policies.name
       VECTOR_BUCKET    = aws_s3_bucket.chatbot_kb.bucket
+      VECTOR_PREFIX    = "vectors/"
+      EMBED_MODEL      = "gemini-embedding-001"
+      EMBED_DIM        = "768"
     }
   }
 
@@ -474,15 +493,33 @@ resource "aws_lambda_function" "sync_to_kb" {
 
 # Event Source Mappings cho Khung 4 (Lắng nghe CDC từ 2 bảng)
 resource "aws_lambda_event_source_mapping" "products_stream_to_kb" {
-  event_source_arn  = aws_dynamodb_table.products.stream_arn
-  function_name     = aws_lambda_function.sync_to_kb.arn
-  starting_position = "LATEST"
-  batch_size        = 10
+  event_source_arn                   = aws_dynamodb_table.products.stream_arn
+  function_name                      = aws_lambda_function.sync_to_kb.arn
+  starting_position                  = "LATEST"
+  batch_size                         = 10
+  maximum_batching_window_in_seconds = 5
+  bisect_batch_on_function_error     = true
+  maximum_retry_attempts             = 3
+
+  destination_config {
+    on_failure {
+      destination_arn = aws_sqs_queue.sync_dlq.arn
+    }
+  }
 }
 
 resource "aws_lambda_event_source_mapping" "policies_stream_to_kb" {
-  event_source_arn  = aws_dynamodb_table.store_policies.stream_arn
-  function_name     = aws_lambda_function.sync_to_kb.arn
-  starting_position = "LATEST"
-  batch_size        = 5
+  event_source_arn                   = aws_dynamodb_table.store_policies.stream_arn
+  function_name                      = aws_lambda_function.sync_to_kb.arn
+  starting_position                  = "LATEST"
+  batch_size                         = 5
+  maximum_batching_window_in_seconds = 5
+  bisect_batch_on_function_error     = true
+  maximum_retry_attempts             = 3
+
+  destination_config {
+    on_failure {
+      destination_arn = aws_sqs_queue.sync_dlq.arn
+    }
+  }
 }

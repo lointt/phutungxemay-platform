@@ -119,6 +119,46 @@ jobs:
             --environment "Variables={SMTP_SERVER=${{ vars.SMTP_SERVER || 'smtp.gmail.com' }},SMTP_PORT=${{ vars.SMTP_PORT || '465' }},SMTP_USER=${{ vars.SMTP_USER || secrets.SMTP_USER }},SMTP_PASSWORD=${{ secrets.SMTP_PASSWORD }}}"
           cd ../../..
 
+      - name: 📦 Build google-genai dependency bundle for Chatbot Lambdas
+        run: |
+          mkdir -p /tmp/genai_pkg
+          pip install google-genai -t /tmp/genai_pkg/ --platform manylinux2014_x86_64 --only-binary=:all:
+
+      - name: 📦 Package & Deploy ChatReceiverHandler
+        run: |
+          cd backend/services/chatbot_receiver
+          python3 -c "import zipfile; zf = zipfile.ZipFile('receiver.zip', 'w'); zf.write('handler.py', 'lambda_function.py'); zf.close()"
+          aws lambda update-function-code \
+            --function-name ChatReceiverHandler-${{ vars.AWS_ENVIRONMENT_TITLE || secrets.AWS_ENVIRONMENT_TITLE || 'Replica' }} \
+            --zip-file fileb://receiver.zip
+          cd ../../..
+
+      - name: 📦 Package & Deploy ChatOrchestratorHandler
+        run: |
+          cd backend/services/chatbot_orchestrator
+          rm -rf build orchestrator.zip
+          mkdir -p build
+          cp -r /tmp/genai_pkg/* build/
+          cp handler.py build/lambda_function.py
+          cd build && zip -rq ../orchestrator.zip . && cd ..
+          aws lambda update-function-code \
+            --function-name ChatOrchestratorHandler-${{ vars.AWS_ENVIRONMENT_TITLE || secrets.AWS_ENVIRONMENT_TITLE || 'Replica' }} \
+            --zip-file fileb://orchestrator.zip
+          cd ../../..
+
+      - name: 📦 Package & Deploy DynamoDBSyncToKBHandler
+        run: |
+          cd backend/services/sync_to_kb
+          rm -rf build sync_to_kb.zip
+          mkdir -p build
+          cp -r /tmp/genai_pkg/* build/
+          cp handler.py build/lambda_function.py
+          cd build && zip -rq ../sync_to_kb.zip . && cd ..
+          aws lambda update-function-code \
+            --function-name DynamoDBSyncToKBHandler-${{ vars.AWS_ENVIRONMENT_TITLE || secrets.AWS_ENVIRONMENT_TITLE || 'Replica' }} \
+            --zip-file fileb://sync_to_kb.zip
+          cd ../../..
+
       - name: 🔄 Invalidate CloudFront API Cache
         run: |
           aws cloudfront create-invalidation \
