@@ -4,41 +4,10 @@
 
 locals {
   monitoring_env_title = title(var.environment)
-
-  # Danh sách toàn bộ 12 hàm Lambda cần quản lý vòng đời Log Retention
-  all_lambda_functions = [
-    aws_lambda_function.catalog_service.function_name,
-    aws_lambda_function.cart_service.function_name,
-    aws_lambda_function.order_service.function_name,
-    aws_lambda_function.payment_webhook.function_name,
-    aws_lambda_function.user_service.function_name,
-    aws_lambda_function.inventory_worker.function_name,
-    aws_lambda_function.shipping_worker.function_name,
-    aws_lambda_function.notification_worker.function_name,
-    aws_lambda_function.nextjs_server.function_name,
-    aws_lambda_function.chat_receiver.function_name,
-    aws_lambda_function.chat_orchestrator.function_name,
-    aws_lambda_function.sync_to_kb.function_name
-  ]
 }
 
 # ==============================================================================
-# 1. QUẢN LÝ VÒNG ĐỜI LOG (LOG RETENTION - TỐI ƯU CHI PHÍ LƯU TRỮ)
-# ==============================================================================
-# Môi trường replica/dev: lưu 7 ngày; Môi trường prod: lưu 30 ngày (Compliance)
-resource "aws_cloudwatch_log_group" "lambda_log_retention" {
-  for_each          = toset(local.all_lambda_functions)
-  name              = "/aws/lambda/${each.value}"
-  retention_in_days = var.environment == "prod" ? 30 : 7
-
-  tags = {
-    Environment = var.environment
-    ManagedBy   = "Terraform"
-  }
-}
-
-# ==============================================================================
-# 2. AMAZON SNS ALERT TOPIC (KÊNH PHÁT THÔNG BÁO SỰ CỐ TẬP TRUNG)
+# 1. AMAZON SNS ALERT TOPIC (KÊNH PHÁT THÔNG BÁO SỰ CỐ TẬP TRUNG)
 # ==============================================================================
 resource "aws_sns_topic" "system_alerts" {
   name         = "ecommerce-system-alerts-${var.environment}"
@@ -60,10 +29,10 @@ resource "aws_sns_topic_subscription" "admin_email_alert" {
 }
 
 # ==============================================================================
-# 3. CLOUDWATCH METRIC ALARMS (CẢNH BÁO TỰ ĐỘNG CÁC CHỈ SỐ QUAN TRỌNG)
+# 2. CLOUDWATCH METRIC ALARMS (CẢNH BÁO TỰ ĐỘNG CÁC CHỈ SỐ QUAN TRỌNG)
 # ==============================================================================
 
-# 3.1 Báo động khẩn cấp: Phát hiện có tin nhắn trong Notification DLQ
+# 2.1 Báo động khẩn cấp: Phát hiện có tin nhắn trong Notification DLQ
 resource "aws_cloudwatch_metric_alarm" "notification_dlq_alarm" {
   alarm_name          = "Notification-DLQ-Has-Messages-${var.environment}"
   comparison_operator = "GreaterThanOrEqualToThreshold"
@@ -209,7 +178,7 @@ resource "aws_cloudwatch_metric_alarm" "chat_orchestrator_errors" {
 }
 
 # ==============================================================================
-# 4. CLOUDWATCH DASHBOARD (BẢNG ĐIỀU KHIỂN GIÁM SÁT TRỰC QUAN TẬP TRUNG)
+# 3. CLOUDWATCH DASHBOARD (BẢNG ĐIỀU KHIỂN GIÁM SÁT TRỰC QUAN TẬP TRUNG)
 # ==============================================================================
 resource "aws_cloudwatch_dashboard" "ecommerce_dashboard" {
   dashboard_name = "Ecommerce-System-Overview-${local.monitoring_env_title}"

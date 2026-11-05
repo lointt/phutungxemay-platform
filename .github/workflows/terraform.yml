@@ -82,6 +82,25 @@ jobs:
           echo "Applying Terraform changes..."
           terraform apply -auto-approve -input=false tfplan
 
+      - name: ⏱️ Apply CloudWatch Log Retention Policy (7 days)
+        if: |
+          (github.ref == 'refs/heads/main' && github.event_name == 'push') ||
+          (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'apply')
+        run: |
+          python3 -c "
+          import boto3
+          client = boto3.client('logs', region_name='${{ vars.AWS_REGION || secrets.AWS_REGION || 'ap-southeast-1' }}')
+          paginator = client.get_paginator('describe_log_groups')
+          for page in paginator.paginate(logGroupNamePrefix='/aws/lambda/'):
+              for lg in page.get('logGroups', []):
+                  name = lg['logGroupName']
+                  try:
+                      client.put_retention_policy(logGroupName=name, retentionInDays=7)
+                      print(f'Set 7-day retention for: {name}')
+                  except Exception as e:
+                      print(f'Warning on {name}: {e}')
+          "
+
       - name: 🔄 Sync Vector KB & Store Policies to S3
         if: |
           (github.ref == 'refs/heads/main' && github.event_name == 'push') ||
