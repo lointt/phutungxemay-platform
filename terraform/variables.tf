@@ -27,3 +27,9 @@ variable "product_images_bucket_name" {
   type        = string
   default     = "phutungxemay-product-images-replica-2026"
 }
+
+variable "alert_email" {
+  description = "Email quản trị viên nhận thông báo sự cố từ CloudWatch Alarms (SNS)"
+  type        = string
+  default     = ""
+}

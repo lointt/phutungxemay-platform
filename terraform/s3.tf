@@ -42,8 +42,8 @@ resource "aws_s3_bucket_policy" "frontend_hosting" {
     Version = "2012-10-17"
     Statement = [
       {
-        Sid       = "AllowCloudFrontServicePrincipalReadOnly"
-        Effect    = "Allow"
+        Sid    = "AllowCloudFrontServicePrincipalReadOnly"
+        Effect = "Allow"
         Principal = {
           Service = "cloudfront.amazonaws.com"
         }
@@ -111,8 +111,8 @@ resource "aws_s3_bucket_policy" "product_images" {
     Version = "2012-10-17"
     Statement = [
       {
-        Sid       = "AllowCloudFrontServicePrincipalReadOnlyImages"
-        Effect    = "Allow"
+        Sid    = "AllowCloudFrontServicePrincipalReadOnlyImages"
+        Effect = "Allow"
         Principal = {
           Service = "cloudfront.amazonaws.com"
         }

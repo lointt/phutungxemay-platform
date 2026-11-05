@@ -71,3 +71,13 @@ output "chatbot_kb_bucket_name" {
   description = "Tên S3 Bucket lưu trữ Vector Knowledge Base"
   value       = aws_s3_bucket.chatbot_kb.bucket
 }
+
+output "alerts_sns_topic_arn" {
+  description = "ARN của Amazon SNS Topic nhận cảnh báo sự cố hệ thống"
+  value       = aws_sns_topic.system_alerts.arn
+}
+
+output "cloudwatch_dashboard_name" {
+  description = "Tên của CloudWatch Dashboard giám sát toàn bộ hệ thống"
+  value       = aws_cloudwatch_dashboard.ecommerce_dashboard.dashboard_name
+}
