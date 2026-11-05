@@ -3,143 +3,453 @@
 ################################################################################
 
 locals {
-  backend_role_name = "BackendMicroservices-${var.environment}-ExecutionRole"
-  env_title         = title(var.environment)
-}
+  env_title = title(var.environment)
 
-# ==============================================================================
-# 1. IAM EXECUTION ROLE CHO TOÀN BỘ BACKEND LAMBDAS
-# ==============================================================================
-resource "aws_iam_role" "backend_exec_role" {
-  name = local.backend_role_name
-
-  assume_role_policy = jsonencode({
+  lambda_assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
       {
-        Action = "sts:AssumeRole"
-        Effect = "Allow"
-        Principal = {
-          Service = "lambda.amazonaws.com"
-        }
+        Action    = "sts:AssumeRole"
+        Effect    = "Allow"
+        Principal = { Service = "lambda.amazonaws.com" }
       }
     ]
   })
+}
+
+# ==============================================================================
+# 1. IAM EXECUTION ROLES CHO TỪNG MICROSERVICE & WORKER (LEAST PRIVILEGE)
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# 1.1 Catalog Service Role & Policy (CRUD Sản phẩm & Presigned Upload S3)
+# ------------------------------------------------------------------------------
+resource "aws_iam_role" "catalog_service_role" {
+  name               = "CatalogServiceRole-${var.environment}"
+  assume_role_policy = local.lambda_assume_role_policy
 
   tags = {
-    Name        = local.backend_role_name
+    Name        = "CatalogServiceRole-${var.environment}"
     Environment = var.environment
     ManagedBy   = "Terraform"
   }
 }
 
-resource "aws_iam_role_policy_attachment" "backend_basic_logs" {
-  role       = aws_iam_role.backend_exec_role.name
+resource "aws_iam_role_policy_attachment" "catalog_basic_logs" {
+  role       = aws_iam_role.catalog_service_role.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
-resource "aws_iam_policy" "backend_permissions_policy" {
-  name        = "BackendPermissionsPolicy-${var.environment}"
-  description = "Quyen truy cap DynamoDB, SQS va EventBridge cho Microservices backend"
+resource "aws_iam_role_policy" "catalog_service_policy" {
+  name = "CatalogServicePolicy-${var.environment}"
+  role = aws_iam_role.catalog_service_role.id
 
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
       {
-        Sid      = "DynamoDBAccess"
-        Effect   = "Allow"
-        Action   = [
+        Sid    = "ProductCatalogCRUD"
+        Effect = "Allow"
+        Action = [
           "dynamodb:GetItem",
+          "dynamodb:Query",
+          "dynamodb:Scan",
           "dynamodb:PutItem",
           "dynamodb:UpdateItem",
-          "dynamodb:DeleteItem",
-          "dynamodb:Scan",
-          "dynamodb:Query",
-          "dynamodb:BatchGetItem",
-          "dynamodb:BatchWriteItem"
+          "dynamodb:DeleteItem"
         ]
         Resource = [
           aws_dynamodb_table.products.arn,
-          "${aws_dynamodb_table.products.arn}/*",
-          aws_dynamodb_table.orders.arn,
-          "${aws_dynamodb_table.orders.arn}/*",
-          aws_dynamodb_table.carts.arn,
-          "${aws_dynamodb_table.carts.arn}/*",
-          aws_dynamodb_table.users.arn,
-          "${aws_dynamodb_table.users.arn}/*"
+          "${aws_dynamodb_table.products.arn}/*"
         ]
       },
       {
-        Sid      = "EventBridgePublish"
-        Effect   = "Allow"
-        Action   = [
-          "events:PutEvents"
-        ]
-        Resource = [
-          aws_cloudwatch_event_bus.ecommerce_bus.arn
-        ]
-      },
-      {
-        Sid      = "SQSConsume"
-        Effect   = "Allow"
-        Action   = [
-          "sqs:ReceiveMessage",
-          "sqs:DeleteMessage",
-          "sqs:GetQueueAttributes"
-        ]
-        Resource = [
-          aws_sqs_queue.inventory_queue.arn,
-          aws_sqs_queue.shipping_queue.arn,
-          aws_sqs_queue.notification_queue.arn
-        ]
-      },
-      {
-        Sid      = "S3ProductImagesAccess"
-        Effect   = "Allow"
-        Action   = [
-          "s3:PutObject",
-          "s3:GetObject"
+        Sid    = "UploadProductImagesPresignedUrl"
+        Effect = "Allow"
+        Action = [
+          "s3:PutObject"
         ]
         Resource = [
           "${aws_s3_bucket.product_images.arn}/*"
-        ]
-      },
-      {
-        Sid      = "SSMParameterAccess"
-        Effect   = "Allow"
-        Action   = [
-          "ssm:GetParameter",
-          "ssm:GetParameters",
-          "ssm:GetParametersByPath"
-        ]
-        Resource = [
-          "arn:aws:ssm:${var.aws_region}:*:parameter/ecommerce/*",
-          "arn:aws:ssm:${var.aws_region}:*:parameter/chatbot/*"
-        ]
-      },
-      {
-        Sid      = "StorePoliciesAccess"
-        Effect   = "Allow"
-        Action   = [
-          "dynamodb:GetItem",
-          "dynamodb:PutItem",
-          "dynamodb:UpdateItem",
-          "dynamodb:DeleteItem",
-          "dynamodb:Query",
-          "dynamodb:Scan"
-        ]
-        Resource = [
-          aws_dynamodb_table.store_policies.arn,
-          "${aws_dynamodb_table.store_policies.arn}/*"
         ]
       }
     ]
   })
 }
 
-resource "aws_iam_role_policy_attachment" "backend_custom_attach" {
-  role       = aws_iam_role.backend_exec_role.name
-  policy_arn = aws_iam_policy.backend_permissions_policy.arn
+# ------------------------------------------------------------------------------
+# 1.2 Cart Service Role & Policy (Thao tác Giỏ hàng & Kiểm tra Tồn kho)
+# ------------------------------------------------------------------------------
+resource "aws_iam_role" "cart_service_role" {
+  name               = "CartServiceRole-${var.environment}"
+  assume_role_policy = local.lambda_assume_role_policy
+
+  tags = {
+    Name        = "CartServiceRole-${var.environment}"
+    Environment = var.environment
+    ManagedBy   = "Terraform"
+  }
+}
+
+resource "aws_iam_role_policy_attachment" "cart_basic_logs" {
+  role       = aws_iam_role.cart_service_role.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+}
+
+resource "aws_iam_role_policy" "cart_service_policy" {
+  name = "CartServicePolicy-${var.environment}"
+  role = aws_iam_role.cart_service_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "CartOperations"
+        Effect = "Allow"
+        Action = [
+          "dynamodb:GetItem",
+          "dynamodb:PutItem",
+          "dynamodb:UpdateItem",
+          "dynamodb:DeleteItem"
+        ]
+        Resource = [
+          aws_dynamodb_table.carts.arn,
+          "${aws_dynamodb_table.carts.arn}/*"
+        ]
+      },
+      {
+        Sid    = "ReadProductStockAndPrice"
+        Effect = "Allow"
+        Action = [
+          "dynamodb:GetItem"
+        ]
+        Resource = [
+          aws_dynamodb_table.products.arn,
+          "${aws_dynamodb_table.products.arn}/*"
+        ]
+      }
+    ]
+  })
+}
+
+# ------------------------------------------------------------------------------
+# 1.3 Order Service Role & Policy (Quản lý Đơn hàng & Phát sự kiện EventBridge)
+# ------------------------------------------------------------------------------
+resource "aws_iam_role" "order_service_role" {
+  name               = "OrderServiceRole-${var.environment}"
+  assume_role_policy = local.lambda_assume_role_policy
+
+  tags = {
+    Name        = "OrderServiceRole-${var.environment}"
+    Environment = var.environment
+    ManagedBy   = "Terraform"
+  }
+}
+
+resource "aws_iam_role_policy_attachment" "order_basic_logs" {
+  role       = aws_iam_role.order_service_role.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+}
+
+resource "aws_iam_role_policy" "order_service_policy" {
+  name = "OrderServicePolicy-${var.environment}"
+  role = aws_iam_role.order_service_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "OrderManagement"
+        Effect = "Allow"
+        Action = [
+          "dynamodb:GetItem",
+          "dynamodb:PutItem",
+          "dynamodb:UpdateItem",
+          "dynamodb:Query"
+        ]
+        Resource = [
+          aws_dynamodb_table.orders.arn,
+          "${aws_dynamodb_table.orders.arn}/*"
+        ]
+      },
+      {
+        Sid    = "ClearCartAfterOrder"
+        Effect = "Allow"
+        Action = [
+          "dynamodb:DeleteItem"
+        ]
+        Resource = [
+          aws_dynamodb_table.carts.arn,
+          "${aws_dynamodb_table.carts.arn}/*"
+        ]
+      },
+      {
+        Sid    = "ReadProductPrice"
+        Effect = "Allow"
+        Action = [
+          "dynamodb:GetItem"
+        ]
+        Resource = [
+          aws_dynamodb_table.products.arn,
+          "${aws_dynamodb_table.products.arn}/*"
+        ]
+      },
+      {
+        Sid    = "PublishOrderPlacedEvent"
+        Effect = "Allow"
+        Action = [
+          "events:PutEvents"
+        ]
+        Resource = [
+          aws_cloudwatch_event_bus.ecommerce_bus.arn
+        ]
+      }
+    ]
+  })
+}
+
+# ------------------------------------------------------------------------------
+# 1.4 Payment Webhook Role & Policy (Cập nhật PAID & Bắn sự kiện PaymentConfirmed)
+# ------------------------------------------------------------------------------
+resource "aws_iam_role" "payment_webhook_role" {
+  name               = "PaymentWebhookRole-${var.environment}"
+  assume_role_policy = local.lambda_assume_role_policy
+
+  tags = {
+    Name        = "PaymentWebhookRole-${var.environment}"
+    Environment = var.environment
+    ManagedBy   = "Terraform"
+  }
+}
+
+resource "aws_iam_role_policy_attachment" "payment_webhook_basic_logs" {
+  role       = aws_iam_role.payment_webhook_role.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+}
+
+resource "aws_iam_role_policy" "payment_webhook_policy" {
+  name = "PaymentWebhookPolicy-${var.environment}"
+  role = aws_iam_role.payment_webhook_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "UpdateOrderPaymentStatus"
+        Effect = "Allow"
+        Action = [
+          "dynamodb:GetItem",
+          "dynamodb:UpdateItem"
+        ]
+        Resource = [
+          aws_dynamodb_table.orders.arn,
+          "${aws_dynamodb_table.orders.arn}/*"
+        ]
+      },
+      {
+        Sid    = "PublishPaymentConfirmedEvent"
+        Effect = "Allow"
+        Action = [
+          "events:PutEvents"
+        ]
+        Resource = [
+          aws_cloudwatch_event_bus.ecommerce_bus.arn
+        ]
+      }
+    ]
+  })
+}
+
+# ------------------------------------------------------------------------------
+# 1.5 User Profile Service Role & Policy (Hồ sơ, Địa chỉ, Garage của User)
+# ------------------------------------------------------------------------------
+resource "aws_iam_role" "user_service_role" {
+  name               = "UserProfileRole-${var.environment}"
+  assume_role_policy = local.lambda_assume_role_policy
+
+  tags = {
+    Name        = "UserProfileRole-${var.environment}"
+    Environment = var.environment
+    ManagedBy   = "Terraform"
+  }
+}
+
+resource "aws_iam_role_policy_attachment" "user_service_basic_logs" {
+  role       = aws_iam_role.user_service_role.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+}
+
+resource "aws_iam_role_policy" "user_service_policy" {
+  name = "UserProfilePolicy-${var.environment}"
+  role = aws_iam_role.user_service_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "UserProfileOperations"
+        Effect = "Allow"
+        Action = [
+          "dynamodb:GetItem",
+          "dynamodb:PutItem",
+          "dynamodb:UpdateItem"
+        ]
+        Resource = [
+          aws_dynamodb_table.users.arn,
+          "${aws_dynamodb_table.users.arn}/*"
+        ]
+      }
+    ]
+  })
+}
+
+# ------------------------------------------------------------------------------
+# 1.6 Inventory Worker Role & Policy (SQS Consume & Trừ Tồn Kho Nguyên Tử)
+# ------------------------------------------------------------------------------
+resource "aws_iam_role" "inventory_worker_role" {
+  name               = "InventoryWorkerRole-${var.environment}"
+  assume_role_policy = local.lambda_assume_role_policy
+
+  tags = {
+    Name        = "InventoryWorkerRole-${var.environment}"
+    Environment = var.environment
+    ManagedBy   = "Terraform"
+  }
+}
+
+resource "aws_iam_role_policy_attachment" "inventory_worker_basic_logs" {
+  role       = aws_iam_role.inventory_worker_role.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+}
+
+resource "aws_iam_role_policy" "inventory_worker_policy" {
+  name = "InventoryWorkerPolicy-${var.environment}"
+  role = aws_iam_role.inventory_worker_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "ConsumeInventoryQueue"
+        Effect = "Allow"
+        Action = [
+          "sqs:ReceiveMessage",
+          "sqs:DeleteMessage",
+          "sqs:GetQueueAttributes"
+        ]
+        Resource = [
+          aws_sqs_queue.inventory_queue.arn
+        ]
+      },
+      {
+        Sid    = "UpdateProductInventory"
+        Effect = "Allow"
+        Action = [
+          "dynamodb:UpdateItem"
+        ]
+        Resource = [
+          aws_dynamodb_table.products.arn,
+          "${aws_dynamodb_table.products.arn}/*"
+        ]
+      }
+    ]
+  })
+}
+
+# ------------------------------------------------------------------------------
+# 1.7 Shipping Worker Role & Policy (SQS Consume & Cập nhật Vận đơn GHN)
+# ------------------------------------------------------------------------------
+resource "aws_iam_role" "shipping_worker_role" {
+  name               = "ShippingWorkerRole-${var.environment}"
+  assume_role_policy = local.lambda_assume_role_policy
+
+  tags = {
+    Name        = "ShippingWorkerRole-${var.environment}"
+    Environment = var.environment
+    ManagedBy   = "Terraform"
+  }
+}
+
+resource "aws_iam_role_policy_attachment" "shipping_worker_basic_logs" {
+  role       = aws_iam_role.shipping_worker_role.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+}
+
+resource "aws_iam_role_policy" "shipping_worker_policy" {
+  name = "ShippingWorkerPolicy-${var.environment}"
+  role = aws_iam_role.shipping_worker_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "ConsumeShippingQueue"
+        Effect = "Allow"
+        Action = [
+          "sqs:ReceiveMessage",
+          "sqs:DeleteMessage",
+          "sqs:GetQueueAttributes"
+        ]
+        Resource = [
+          aws_sqs_queue.shipping_queue.arn
+        ]
+      },
+      {
+        Sid    = "UpdateOrderShippingInfo"
+        Effect = "Allow"
+        Action = [
+          "dynamodb:GetItem",
+          "dynamodb:UpdateItem"
+        ]
+        Resource = [
+          aws_dynamodb_table.orders.arn,
+          "${aws_dynamodb_table.orders.arn}/*"
+        ]
+      }
+    ]
+  })
+}
+
+# ------------------------------------------------------------------------------
+# 1.8 Notification Worker Role & Policy (SQS Consume & Gửi Mail Khách/Nhân viên)
+# ------------------------------------------------------------------------------
+resource "aws_iam_role" "notification_worker_role" {
+  name               = "NotificationWorkerRole-${var.environment}"
+  assume_role_policy = local.lambda_assume_role_policy
+
+  tags = {
+    Name        = "NotificationWorkerRole-${var.environment}"
+    Environment = var.environment
+    ManagedBy   = "Terraform"
+  }
+}
+
+resource "aws_iam_role_policy_attachment" "notification_worker_basic_logs" {
+  role       = aws_iam_role.notification_worker_role.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+}
+
+resource "aws_iam_role_policy" "notification_worker_policy" {
+  name = "NotificationWorkerPolicy-${var.environment}"
+  role = aws_iam_role.notification_worker_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "ConsumeNotificationQueue"
+        Effect = "Allow"
+        Action = [
+          "sqs:ReceiveMessage",
+          "sqs:DeleteMessage",
+          "sqs:GetQueueAttributes"
+        ]
+        Resource = [
+          aws_sqs_queue.notification_queue.arn
+        ]
+      }
+    ]
+  })
 }
 
 # ==============================================================================
@@ -224,7 +534,7 @@ data "archive_file" "notification_zip" {
 # 1. Catalog Service
 resource "aws_lambda_function" "catalog_service" {
   function_name    = "CatalogServiceHandler-${local.env_title}"
-  role             = aws_iam_role.backend_exec_role.arn
+  role             = aws_iam_role.catalog_service_role.arn
   runtime          = "python3.12"
   handler          = "lambda_function.lambda_handler"
   memory_size      = 256
@@ -253,7 +563,7 @@ resource "aws_lambda_function" "catalog_service" {
 # 2. Cart Service
 resource "aws_lambda_function" "cart_service" {
   function_name    = "CartServiceHandler-${local.env_title}"
-  role             = aws_iam_role.backend_exec_role.arn
+  role             = aws_iam_role.cart_service_role.arn
   runtime          = "python3.12"
   handler          = "lambda_function.lambda_handler"
   memory_size      = 256
@@ -281,7 +591,7 @@ resource "aws_lambda_function" "cart_service" {
 # 3. Order Service
 resource "aws_lambda_function" "order_service" {
   function_name    = "OrderServiceHandler-${local.env_title}"
-  role             = aws_iam_role.backend_exec_role.arn
+  role             = aws_iam_role.order_service_role.arn
   runtime          = "python3.12"
   handler          = "lambda_function.lambda_handler"
   memory_size      = 512
@@ -295,10 +605,10 @@ resource "aws_lambda_function" "order_service" {
 
   environment {
     variables = {
-      ORDERS_TABLE      = aws_dynamodb_table.orders.name
-      CARTS_TABLE       = aws_dynamodb_table.carts.name
-      PRODUCTS_TABLE    = aws_dynamodb_table.products.name
-      EVENT_BUS_NAME    = aws_cloudwatch_event_bus.ecommerce_bus.name
+      ORDERS_TABLE   = aws_dynamodb_table.orders.name
+      CARTS_TABLE    = aws_dynamodb_table.carts.name
+      PRODUCTS_TABLE = aws_dynamodb_table.products.name
+      EVENT_BUS_NAME = aws_cloudwatch_event_bus.ecommerce_bus.name
     }
   }
 
@@ -311,7 +621,7 @@ resource "aws_lambda_function" "order_service" {
 # 4. Payment Webhook Service
 resource "aws_lambda_function" "payment_webhook" {
   function_name    = "PaymentWebhookHandler-${local.env_title}"
-  role             = aws_iam_role.backend_exec_role.arn
+  role             = aws_iam_role.payment_webhook_role.arn
   runtime          = "python3.12"
   handler          = "lambda_function.lambda_handler"
   memory_size      = 256
@@ -325,8 +635,8 @@ resource "aws_lambda_function" "payment_webhook" {
 
   environment {
     variables = {
-      ORDERS_TABLE      = aws_dynamodb_table.orders.name
-      EVENT_BUS_NAME    = aws_cloudwatch_event_bus.ecommerce_bus.name
+      ORDERS_TABLE   = aws_dynamodb_table.orders.name
+      EVENT_BUS_NAME = aws_cloudwatch_event_bus.ecommerce_bus.name
     }
   }
 
@@ -339,7 +649,7 @@ resource "aws_lambda_function" "payment_webhook" {
 # 5. User Profile Service
 resource "aws_lambda_function" "user_service" {
   function_name    = "UserProfileHandler-${local.env_title}"
-  role             = aws_iam_role.backend_exec_role.arn
+  role             = aws_iam_role.user_service_role.arn
   runtime          = "python3.12"
   handler          = "lambda_function.lambda_handler"
   memory_size      = 256
@@ -370,7 +680,7 @@ resource "aws_lambda_function" "user_service" {
 # 6. Inventory Worker
 resource "aws_lambda_function" "inventory_worker" {
   function_name    = "InventoryWorker-${local.env_title}"
-  role             = aws_iam_role.backend_exec_role.arn
+  role             = aws_iam_role.inventory_worker_role.arn
   runtime          = "python3.12"
   handler          = "lambda_function.lambda_handler"
   memory_size      = 256
@@ -406,7 +716,7 @@ resource "aws_lambda_event_source_mapping" "inventory_sqs_trigger" {
 # 7. Shipping Worker (GHN API)
 resource "aws_lambda_function" "shipping_worker" {
   function_name    = "ShippingWorker-${local.env_title}"
-  role             = aws_iam_role.backend_exec_role.arn
+  role             = aws_iam_role.shipping_worker_role.arn
   runtime          = "python3.12"
   handler          = "lambda_function.lambda_handler"
   memory_size      = 256
@@ -442,7 +752,7 @@ resource "aws_lambda_event_source_mapping" "shipping_sqs_trigger" {
 # 8. Notification Worker (Gmail SMTP)
 resource "aws_lambda_function" "notification_worker" {
   function_name    = "NotificationWorker-${local.env_title}"
-  role             = aws_iam_role.backend_exec_role.arn
+  role             = aws_iam_role.notification_worker_role.arn
   runtime          = "python3.12"
   handler          = "lambda_function.lambda_handler"
   memory_size      = 256
