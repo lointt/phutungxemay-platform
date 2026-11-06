@@ -42,30 +42,55 @@ def build_response(status_code, body):
         "body": json.dumps(body, cls=DecimalEncoder, ensure_ascii=False)
     }
 
+def verify_origin(event):
+    """Xác thực request đi qua CloudFront (Edge WAF) qua header X-Origin-Verify"""
+    expected_secret = os.environ.get('ORIGIN_VERIFY_SECRET', '')
+    if not expected_secret:
+        return True  # Môi trường dev/test offline nếu chưa cấu hình secret thì cho phép
+
+    headers = event.get('headers') or {}
+    received_secret = (
+        headers.get('x-origin-verify') or 
+        headers.get('X-Origin-Verify') or 
+        headers.get('X-origin-verify') or ''
+    )
+    return received_secret == expected_secret
+
 def is_admin(event):
-    """Kiểm tra quyền Admin từ Cognito Authorizer claims hoặc Headers"""
+    """Kiểm tra quyền Admin từ Cognito Authorizer claims hoặc token nội bộ an toàn (Zero-Trust)"""
     try:
+        # 1. Kiểm tra claims từ Cognito Authorizer (JWT)
         claims = event.get('requestContext', {}).get('authorizer', {}).get('claims', {})
         groups = claims.get('cognito:groups', [])
-        if isinstance(groups, str) and 'Admins' in groups:
-            return True
+        if isinstance(groups, str):
+            group_list = [g.strip() for g in groups.split(',') if g.strip()]
+            if 'Admins' in group_list:
+                return True
         elif isinstance(groups, list) and 'Admins' in groups:
             return True
 
+        # 2. Hỗ trợ xác thực nội bộ an toàn (chống giả mạo header x-role thuần túy)
         headers = event.get('headers') or {}
         role = headers.get('x-role') or headers.get('X-Role') or ''
-        if role.lower() == 'admin':
+        admin_key = headers.get('x-admin-key') or headers.get('X-Admin-Key') or ''
+        expected_key = os.environ.get('ADMIN_SECRET_KEY', '')
+
+        if role.lower() == 'admin' and expected_key and admin_key == expected_key:
             return True
 
-        # Khi API Gateway cấu hình authorization = NONE, cho phép quản lý catalog
-        return True
+        # Mặc định từ chối toàn bộ request không xác thực hợp lệ
+        return False
     except Exception:
-        return True
+        return False
 
 def lambda_handler(event, context):
     http_method = event.get('httpMethod', '')
     path_parameters = event.get('pathParameters') or {}
     product_id = path_parameters.get('id')
+
+    # 0. Ngăn chặn bypass CloudFront Edge WAF
+    if not verify_origin(event):
+        return build_response(403, {"message": "Forbidden: Yêu cầu bị từ chối do không đi qua Edge WAF / CDN."})
 
     try:
         # 0. POST /products/upload-url: Sinh S3 Pre-signed URL để upload ảnh sản phẩm

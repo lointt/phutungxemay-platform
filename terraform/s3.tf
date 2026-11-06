@@ -25,6 +25,17 @@ resource "aws_s3_bucket_public_access_block" "frontend_hosting" {
   restrict_public_buckets = true
 }
 
+# Mã hóa tĩnh (Server-Side Encryption AES256) cho S3 Frontend
+resource "aws_s3_bucket_server_side_encryption_configuration" "frontend_hosting" {
+  bucket = aws_s3_bucket.frontend_hosting.id
+
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "AES256"
+    }
+  }
+}
+
 # CloudFront Origin Access Control (OAC) dùng chung cho cả 2 S3 Buckets
 resource "aws_cloudfront_origin_access_control" "hosting_oac" {
   name                              = "${var.hosting_bucket_name}-oac"
@@ -41,6 +52,21 @@ resource "aws_s3_bucket_policy" "frontend_hosting" {
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
+      {
+        Sid       = "DenyInsecureTransport"
+        Effect    = "Deny"
+        Principal = "*"
+        Action    = "s3:*"
+        Resource = [
+          aws_s3_bucket.frontend_hosting.arn,
+          "${aws_s3_bucket.frontend_hosting.arn}/*"
+        ]
+        Condition = {
+          Bool = {
+            "aws:SecureTransport" = "false"
+          }
+        }
+      },
       {
         Sid    = "AllowCloudFrontServicePrincipalReadOnly"
         Effect = "Allow"
@@ -90,6 +116,17 @@ resource "aws_s3_bucket_public_access_block" "product_images" {
   restrict_public_buckets = true
 }
 
+# Mã hóa tĩnh (Server-Side Encryption AES256) cho S3 Product Images
+resource "aws_s3_bucket_server_side_encryption_configuration" "product_images" {
+  bucket = aws_s3_bucket.product_images.id
+
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "AES256"
+    }
+  }
+}
+
 # Cấu hình CORS cho phép Browser upload trực tiếp ảnh qua S3 Pre-signed URL
 resource "aws_s3_bucket_cors_configuration" "product_images" {
   bucket = aws_s3_bucket.product_images.id
@@ -103,13 +140,28 @@ resource "aws_s3_bucket_cors_configuration" "product_images" {
   }
 }
 
-# S3 Bucket Policy: Cho phép CloudFront Distribution OAC đọc ảnh sản phẩm
+# S3 Bucket Policy: Enforce HTTPS TLS và Cho phép CloudFront Distribution OAC đọc ảnh sản phẩm
 resource "aws_s3_bucket_policy" "product_images" {
   bucket = aws_s3_bucket.product_images.id
 
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
+      {
+        Sid       = "DenyInsecureTransport"
+        Effect    = "Deny"
+        Principal = "*"
+        Action    = "s3:*"
+        Resource = [
+          aws_s3_bucket.product_images.arn,
+          "${aws_s3_bucket.product_images.arn}/*"
+        ]
+        Condition = {
+          Bool = {
+            "aws:SecureTransport" = "false"
+          }
+        }
+      },
       {
         Sid    = "AllowCloudFrontServicePrincipalReadOnlyImages"
         Effect = "Allow"

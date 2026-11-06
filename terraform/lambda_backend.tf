@@ -551,6 +551,7 @@ resource "aws_lambda_function" "catalog_service" {
       PRODUCTS_TABLE        = aws_dynamodb_table.products.name
       PRODUCT_IMAGES_BUCKET = aws_s3_bucket.product_images.bucket
       CDN_DOMAIN            = aws_cloudfront_distribution.main.domain_name
+      ORIGIN_VERIFY_SECRET  = var.origin_verify_secret
     }
   }
 
@@ -577,8 +578,9 @@ resource "aws_lambda_function" "cart_service" {
 
   environment {
     variables = {
-      CARTS_TABLE    = aws_dynamodb_table.carts.name
-      PRODUCTS_TABLE = aws_dynamodb_table.products.name
+      CARTS_TABLE          = aws_dynamodb_table.carts.name
+      PRODUCTS_TABLE       = aws_dynamodb_table.products.name
+      ORIGIN_VERIFY_SECRET = var.origin_verify_secret
     }
   }
 
@@ -605,10 +607,11 @@ resource "aws_lambda_function" "order_service" {
 
   environment {
     variables = {
-      ORDERS_TABLE   = aws_dynamodb_table.orders.name
-      CARTS_TABLE    = aws_dynamodb_table.carts.name
-      PRODUCTS_TABLE = aws_dynamodb_table.products.name
-      EVENT_BUS_NAME = aws_cloudwatch_event_bus.ecommerce_bus.name
+      ORDERS_TABLE         = aws_dynamodb_table.orders.name
+      CARTS_TABLE          = aws_dynamodb_table.carts.name
+      PRODUCTS_TABLE       = aws_dynamodb_table.products.name
+      EVENT_BUS_NAME       = aws_cloudwatch_event_bus.ecommerce_bus.name
+      ORIGIN_VERIFY_SECRET = var.origin_verify_secret
     }
   }
 
@@ -663,7 +666,8 @@ resource "aws_lambda_function" "user_service" {
 
   environment {
     variables = {
-      USERS_TABLE = aws_dynamodb_table.users.name
+      USERS_TABLE          = aws_dynamodb_table.users.name
+      ORIGIN_VERIFY_SECRET = var.origin_verify_secret
     }
   }
 
@@ -697,6 +701,7 @@ resource "aws_lambda_function" "inventory_worker" {
       PRODUCTS_TABLE        = aws_dynamodb_table.products.name
       PRODUCT_IMAGES_BUCKET = aws_s3_bucket.product_images.bucket
       CDN_DOMAIN            = aws_cloudfront_distribution.main.domain_name
+      ORIGIN_VERIFY_SECRET  = var.origin_verify_secret
     }
   }
 

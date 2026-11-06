@@ -6,6 +6,7 @@ locals {
   managed_caching_disabled_id       = "4135ea2d-6df8-44a3-9df3-4b5a84be39ad"
   managed_caching_optimized_id      = "658327ea-f89d-4fab-a63d-7e88639e58f6"
   managed_all_viewer_except_host_id = "b689b0a8-53d0-40ab-baf2-68738e2966ac"
+  managed_security_headers_id       = "67f7725c-6f97-4210-82d7-5512b31e9d03"
   lambda_url_domain                 = replace(replace(aws_lambda_function_url.nextjs_url.function_url, "https://", ""), "/", "")
   cf_func_name                      = "strip-api-prefix-${var.environment}"
 }
@@ -110,6 +111,11 @@ resource "aws_cloudfront_distribution" "main" {
       origin_protocol_policy = "https-only"
       origin_ssl_protocols   = ["TLSv1.2"]
     }
+
+    custom_header {
+      name  = "X-Origin-Verify"
+      value = var.origin_verify_secret
+    }
   }
 
   # Origin 2: S3 Frontend Hosting (_next/static/...)
@@ -131,6 +137,11 @@ resource "aws_cloudfront_distribution" "main" {
       origin_protocol_policy = "https-only"
       origin_ssl_protocols   = ["TLSv1.2"]
     }
+
+    custom_header {
+      name  = "X-Origin-Verify"
+      value = var.origin_verify_secret
+    }
   }
 
   # Origin 4: S3 Product Images (/images/*)
@@ -148,9 +159,10 @@ resource "aws_cloudfront_distribution" "main" {
     allowed_methods = ["GET", "HEAD", "OPTIONS", "PUT", "POST", "PATCH", "DELETE"]
     cached_methods  = ["GET", "HEAD"]
 
-    compress                 = true
-    cache_policy_id          = local.managed_caching_disabled_id
-    origin_request_policy_id = local.managed_all_viewer_except_host_id
+    compress                   = true
+    cache_policy_id            = local.managed_caching_disabled_id
+    origin_request_policy_id   = local.managed_all_viewer_except_host_id
+    response_headers_policy_id = local.managed_security_headers_id
 
     # Edge WAF chặn XSS, SQL Injection, Path Traversal
     function_association {
@@ -164,12 +176,12 @@ resource "aws_cloudfront_distribution" "main" {
     path_pattern     = "/_next/*"
     target_origin_id = "FrontendHostingOrigin"
 
-    viewer_protocol_policy = "redirect-to-https"
-    allowed_methods        = ["GET", "HEAD"]
-    cached_methods         = ["GET", "HEAD"]
-
-    compress        = true
-    cache_policy_id = local.managed_caching_optimized_id
+    viewer_protocol_policy     = "redirect-to-https"
+    allowed_methods            = ["GET", "HEAD"]
+    cached_methods             = ["GET", "HEAD"]
+    compress                   = true
+    cache_policy_id            = local.managed_caching_optimized_id
+    response_headers_policy_id = local.managed_security_headers_id
   }
 
   # Ordered Behavior 2: Phục vụ ảnh sản phẩm từ S3 Product Images (/images/*) với Cache tối ưu
@@ -177,26 +189,26 @@ resource "aws_cloudfront_distribution" "main" {
     path_pattern     = "/images/*"
     target_origin_id = "ProductImagesOrigin"
 
-    viewer_protocol_policy = "redirect-to-https"
-    allowed_methods        = ["GET", "HEAD", "OPTIONS"]
-    cached_methods         = ["GET", "HEAD"]
-
-    compress        = true
-    cache_policy_id = local.managed_caching_optimized_id
+    viewer_protocol_policy     = "redirect-to-https"
+    allowed_methods            = ["GET", "HEAD", "OPTIONS"]
+    cached_methods             = ["GET", "HEAD"]
+    compress                   = true
+    cache_policy_id            = local.managed_caching_optimized_id
+    response_headers_policy_id = local.managed_security_headers_id
   }
 
-  # Ordered Behavior 2: Chuyển tiếp toàn bộ API calls (/api/*) sang API Gateway REST
+  # Ordered Behavior 3: Chuyển tiếp toàn bộ API calls (/api/*) sang API Gateway REST
   ordered_cache_behavior {
     path_pattern     = "/api/*"
     target_origin_id = "APIGateway-RestAPI-Origin"
 
-    viewer_protocol_policy = "redirect-to-https"
-    allowed_methods        = ["GET", "HEAD", "OPTIONS", "PUT", "POST", "PATCH", "DELETE"]
-    cached_methods         = ["GET", "HEAD"]
-
-    compress                 = true
-    cache_policy_id          = local.managed_caching_disabled_id
-    origin_request_policy_id = local.managed_all_viewer_except_host_id
+    viewer_protocol_policy     = "redirect-to-https"
+    allowed_methods            = ["GET", "HEAD", "OPTIONS", "PUT", "POST", "PATCH", "DELETE"]
+    cached_methods             = ["GET", "HEAD"]
+    compress                   = true
+    cache_policy_id            = local.managed_caching_disabled_id
+    origin_request_policy_id   = local.managed_all_viewer_except_host_id
+    response_headers_policy_id = local.managed_security_headers_id
 
     function_association {
       event_type   = "viewer-request"

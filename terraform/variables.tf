@@ -33,3 +33,9 @@ variable "alert_email" {
   type        = string
   default     = ""
 }
+
+variable "origin_verify_secret" {
+  description = "Custom secret header value truyen tu CloudFront toi backend de ngan chan bypass Edge WAF"
+  type        = string
+  default     = "phutungxemay-edge-origin-verify-2026-secret"
+}

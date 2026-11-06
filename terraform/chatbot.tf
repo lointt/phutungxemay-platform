@@ -37,6 +37,42 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "chatbot_kb" {
   }
 }
 
+# Chặn hoàn toàn truy cập public vào S3 Chatbot KB
+resource "aws_s3_bucket_public_access_block" "chatbot_kb" {
+  bucket = aws_s3_bucket.chatbot_kb.id
+
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
+# Enforce TLS/HTTPS In-Transit cho S3 Chatbot KB (Từ chối kết nối HTTP không mã hóa)
+resource "aws_s3_bucket_policy" "chatbot_kb" {
+  bucket = aws_s3_bucket.chatbot_kb.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid       = "EnforceTLSRequestsOnly"
+        Effect    = "Deny"
+        Principal = "*"
+        Action    = "s3:*"
+        Resource = [
+          aws_s3_bucket.chatbot_kb.arn,
+          "${aws_s3_bucket.chatbot_kb.arn}/*"
+        ]
+        Condition = {
+          Bool = {
+            "aws:SecureTransport" = "false"
+          }
+        }
+      }
+    ]
+  })
+}
+
 # ==============================================================================
 # 2. API GATEWAY V2 WEBSOCKET API (2-WAY REALTIME COMMUNICATION)
 # ==============================================================================
