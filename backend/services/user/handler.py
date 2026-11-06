@@ -28,6 +28,45 @@ def build_response(status_code, body):
         "body": json.dumps(body, cls=DecimalEncoder, ensure_ascii=False)
     }
 
+def verify_origin(event):
+    """Xác thực request đi qua CloudFront (Edge WAF) qua header X-Origin-Verify"""
+    expected_secret = os.environ.get('ORIGIN_VERIFY_SECRET', '')
+    if not expected_secret:
+        return True  # Dev/test offline nếu chưa cấu hình secret thì cho phép
+
+    headers = event.get('headers') or {}
+    received_secret = (
+        headers.get('x-origin-verify') or 
+        headers.get('X-Origin-Verify') or 
+        headers.get('X-origin-verify') or ''
+    )
+    return received_secret == expected_secret
+
+def get_authenticated_user_id(event):
+    """Lấy User ID đã được xác thực an toàn từ Cognito JWT Authorizer (Chống BOLA/IDOR)"""
+    claims = event.get('requestContext', {}).get('authorizer', {}).get('claims', {})
+    sub = claims.get('sub')
+
+    # Chỉ Admin có claim group Admins mới có quyền truy cập hồ sơ user khác qua query
+    groups = claims.get('cognito:groups', [])
+    is_admin = False
+    if isinstance(groups, str) and 'Admins' in [g.strip() for g in groups.split(',') if g.strip()]:
+        is_admin = True
+    elif isinstance(groups, list) and 'Admins' in groups:
+        is_admin = True
+
+    if is_admin:
+        query = event.get('queryStringParameters') or {}
+        target_user = query.get('userId')
+        if target_user:
+            return target_user
+
+    if sub:
+        return sub
+
+    # Tuyệt đối không chấp nhận x-user-id hoặc userId từ client không có JWT xác thực
+    return None
+
 def handle_cognito_trigger(event):
     """Bắt sự kiện Post Confirmation từ Cognito để tự động khởi tạo hồ sơ user"""
     trigger_source = event.get('triggerSource', '')
@@ -60,16 +99,19 @@ def handle_cognito_trigger(event):
     return event
 
 def lambda_handler(event, context):
+    # 0. Ngăn chặn bypass Edge WAF / CDN
+    if not verify_origin(event):
+        return build_response(403, {"message": "Forbidden: Direct API access is prohibited. Request must pass through CDN Edge WAF."})
+
     # Xử lý Cognito trigger nếu có
     if 'triggerSource' in event:
         return handle_cognito_trigger(event)
 
     http_method = event.get('httpMethod', '')
-    claims = event.get('requestContext', {}).get('authorizer', {}).get('claims', {})
-    user_id = claims.get('sub') or event.get('headers', {}).get('x-user-id') or (event.get('queryStringParameters') or {}).get('userId')
+    user_id = get_authenticated_user_id(event)
 
     if not user_id:
-        return build_response(401, {"message": "Unauthorized: Yêu cầu đăng nhập hoặc cung cấp User ID."})
+        return build_response(401, {"message": "Unauthorized: Yêu cầu đăng nhập tài khoản hợp lệ (Cognito JWT)."})
 
     path = event.get('path', '')
     path_parameters = event.get('pathParameters') or {}

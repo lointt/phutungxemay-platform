@@ -69,7 +69,25 @@ def publish_event(detail_type, payload):
     except Exception as e:
         print(f"[ERROR] Không thể gửi event {detail_type} tới EventBridge: {str(e)}")
 
+def verify_origin(event):
+    """Xác thực request đi qua CloudFront (Edge WAF) qua header X-Origin-Verify"""
+    expected_secret = os.environ.get('ORIGIN_VERIFY_SECRET', '')
+    if not expected_secret:
+        return True
+
+    headers = event.get('headers') or {}
+    received_secret = (
+        headers.get('x-origin-verify') or 
+        headers.get('X-Origin-Verify') or 
+        headers.get('X-origin-verify') or ''
+    )
+    return received_secret == expected_secret
+
 def lambda_handler(event, context):
+    # 0. Ngăn chặn bypass Edge WAF / CDN
+    if not verify_origin(event):
+        return build_response(403, {"message": "Forbidden: Direct API access is prohibited. Request must pass through CDN Edge WAF."})
+
     http_method = event.get('httpMethod', '')
 
     params = {}

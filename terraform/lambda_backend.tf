@@ -447,6 +447,17 @@ resource "aws_iam_role_policy" "notification_worker_policy" {
         Resource = [
           aws_sqs_queue.notification_queue.arn
         ]
+      },
+      {
+        Sid    = "ReadSmtpPasswordFromSSM"
+        Effect = "Allow"
+        Action = [
+          "ssm:GetParameter",
+          "ssm:GetParameters"
+        ]
+        Resource = [
+          aws_ssm_parameter.smtp_password.arn
+        ]
       }
     ]
   })
@@ -638,8 +649,9 @@ resource "aws_lambda_function" "payment_webhook" {
 
   environment {
     variables = {
-      ORDERS_TABLE   = aws_dynamodb_table.orders.name
-      EVENT_BUS_NAME = aws_cloudwatch_event_bus.ecommerce_bus.name
+      ORDERS_TABLE         = aws_dynamodb_table.orders.name
+      EVENT_BUS_NAME       = aws_cloudwatch_event_bus.ecommerce_bus.name
+      ORIGIN_VERIFY_SECRET = var.origin_verify_secret
     }
   }
 
@@ -771,8 +783,9 @@ resource "aws_lambda_function" "notification_worker" {
 
   environment {
     variables = {
-      SMTP_SERVER = "smtp.gmail.com"
-      SMTP_PORT   = "465"
+      SMTP_SERVER         = "smtp.gmail.com"
+      SMTP_PORT           = "465"
+      SMTP_PASSWORD_PARAM = aws_ssm_parameter.smtp_password.name
     }
   }
 

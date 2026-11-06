@@ -58,3 +58,20 @@ resource "aws_ssm_parameter" "shipping_api_key" {
     ManagedBy   = "Terraform"
   }
 }
+
+# 5. Gmail SMTP Password (Dùng cho Notification Worker)
+resource "aws_ssm_parameter" "smtp_password" {
+  name        = "/ecommerce/smtp_password"
+  description = "Mật khẩu ứng dụng (App Password) Gmail SMTP cho NotificationWorker"
+  type        = "SecureString"
+  value       = "GMAIL_APP_PASSWORD_DEFAULT"
+
+  lifecycle {
+    ignore_changes = [value]
+  }
+
+  tags = {
+    Environment = var.environment
+    ManagedBy   = "Terraform"
+  }
+}

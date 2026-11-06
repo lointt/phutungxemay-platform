@@ -33,33 +33,36 @@ def build_response(status_code, body):
         "body": json.dumps(body, cls=DecimalEncoder, ensure_ascii=False)
     }
 
+def verify_origin(event):
+    """Xác thực request đi qua CloudFront (Edge WAF) qua header X-Origin-Verify"""
+    expected_secret = os.environ.get('ORIGIN_VERIFY_SECRET', '')
+    if not expected_secret:
+        return True
+
+    headers = event.get('headers') or {}
+    received_secret = (
+        headers.get('x-origin-verify') or 
+        headers.get('X-Origin-Verify') or 
+        headers.get('X-origin-verify') or ''
+    )
+    return received_secret == expected_secret
+
 def get_user_id(event):
-    """Trích xuất UserID từ Cognito Claims hoặc Query/Header/Body"""
+    """Trích xuất UserID an toàn từ Cognito JWT Claims (Chống BOLA/IDOR)"""
     claims = event.get('requestContext', {}).get('authorizer', {}).get('claims', {})
     sub = claims.get('sub')
     if sub:
         return sub
 
+    # Đối với khách chưa đăng nhập (Guest):
+    # Chỉ chấp nhận session ID khách được định danh riêng biệt (ví dụ guest_session)
+    # Tuyệt đối không cho phép mạo danh userId của người dùng đã đăng ký
     headers = event.get('headers') or {}
-    x_user = headers.get('x-user-id') or headers.get('X-User-Id')
-    if x_user:
-        return x_user
+    guest_session = headers.get('x-guest-session') or headers.get('X-Guest-Session') or headers.get('x-guest-id')
+    if guest_session and (guest_session.startswith('guest_') or len(guest_session) >= 16):
+        return f"guest_{guest_session.replace('guest_', '')}"
 
-    query = event.get('queryStringParameters') or {}
-    q_user = query.get('userId') or query.get('user_id')
-    if q_user:
-        return q_user
-
-    body_raw = event.get('body')
-    if body_raw:
-        try:
-            b_json = json.loads(body_raw)
-            if isinstance(b_json, dict) and b_json.get('userId'):
-                return b_json.get('userId')
-        except Exception:
-            pass
-
-    return 'guest_default'
+    return 'guest_anonymous'
 
 def calculate_cart_totals(items):
     subtotal = sum(Decimal(str(it.get('price', 0))) * Decimal(str(it.get('quantity', 1))) for it in items)
@@ -67,6 +70,10 @@ def calculate_cart_totals(items):
     return subtotal, count
 
 def lambda_handler(event, context):
+    # 0. Ngăn chặn bypass Edge WAF / CDN
+    if not verify_origin(event):
+        return build_response(403, {"message": "Forbidden: Direct API access is prohibited. Request must pass through CDN Edge WAF."})
+
     http_method = event.get('httpMethod', '')
     user_id = get_user_id(event)
 

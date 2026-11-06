@@ -46,20 +46,48 @@ def build_response(status_code, body):
         "body": json.dumps(body, cls=DecimalEncoder, ensure_ascii=False)
     }
 
+def verify_origin(event):
+    """Xác thực request đi qua CloudFront (Edge WAF) qua header X-Origin-Verify"""
+    expected_secret = os.environ.get('ORIGIN_VERIFY_SECRET', '')
+    if not expected_secret:
+        return True
+
+    headers = event.get('headers') or {}
+    received_secret = (
+        headers.get('x-origin-verify') or 
+        headers.get('X-Origin-Verify') or 
+        headers.get('X-origin-verify') or ''
+    )
+    return received_secret == expected_secret
+
 def get_auth_context(event):
-    """Lấy user_id và kiểm tra quyền Admin từ context Cognito hoặc Headers/Query"""
+    """Lấy user_id và quyền Admin an toàn từ Cognito JWT Claims (Chống BOLA/IDOR)"""
     claims = event.get('requestContext', {}).get('authorizer', {}).get('claims', {})
-    user_id = claims.get('sub') or event.get('headers', {}).get('x-user-id') or (event.get('queryStringParameters') or {}).get('userId')
+    sub = claims.get('sub')
     
     groups = claims.get('cognito:groups', [])
     if isinstance(groups, str):
-        is_admin = 'Admins' in groups
+        is_admin = 'Admins' in [g.strip() for g in groups.split(',') if g.strip()]
     elif isinstance(groups, list):
         is_admin = 'Admins' in groups
     else:
         is_admin = False
-        
-    return user_id, is_admin
+
+    query_params = event.get('queryStringParameters') or {}
+    
+    # 1. Admin được phép truy vấn đơn của bất kỳ user nào qua ?userId=...
+    if is_admin:
+        target_user = query_params.get('userId') or sub
+        return target_user, True
+
+    # 2. Khách hàng đã đăng nhập BẮT BUỘC dùng sub từ token Cognito (ngăn chặn giả mạo ID người khác)
+    if sub:
+        return sub, False
+
+    # 3. Khách vãng lai (Guest): cho phép tạo đơn với guest session id
+    headers = event.get('headers') or {}
+    guest_id = headers.get('x-guest-id') or headers.get('X-Guest-Id')
+    return guest_id, False
 
 def publish_event(detail_type, detail_payload):
     """Phát sự kiện lên Amazon EventBridge"""
@@ -115,6 +143,10 @@ def create_vnpay_payment_url(order_id, amount, ip_addr, order_desc=""):
     return payment_url
 
 def lambda_handler(event, context):
+    # 0. Ngăn chặn bypass Edge WAF / CDN
+    if not verify_origin(event):
+        return build_response(403, {"message": "Forbidden: Direct API access is prohibited. Request must pass through CDN Edge WAF."})
+
     http_method = event.get('httpMethod', '')
     path_parameters = event.get('pathParameters') or {}
     order_id = path_parameters.get('id')
@@ -269,7 +301,9 @@ def lambda_handler(event, context):
                 return build_response(404, {"message": f"Không tìm thấy đơn hàng {order_id}"})
 
             order = items[0]
-            # Public order tracking cho phép xem chi tiết đơn hàng nếu có order_id
+            # Ngăn chặn User A xem trộm đơn hàng của User B (Chống BOLA/IDOR)
+            if not is_admin and user_id and order.get('UserID') and order.get('UserID') != user_id:
+                return build_response(403, {"message": "Forbidden: Bạn không có quyền truy cập đơn hàng này."})
             return build_response(200, order)
 
         # 4. PUT /orders/{id}: CẬP NHẬT HOẶC HỦY TRẠNG THÁI ĐƠN HÀNG

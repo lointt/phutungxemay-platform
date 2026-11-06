@@ -1,6 +1,7 @@
 import os
 import json
 import smtplib
+import boto3
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from datetime import datetime, timezone
@@ -8,8 +9,36 @@ from datetime import datetime, timezone
 SMTP_SERVER = os.environ.get("SMTP_SERVER", "smtp.gmail.com")
 SMTP_PORT = int(os.environ.get("SMTP_PORT", 465))
 SMTP_USER = os.environ.get("SMTP_USER", "")
-SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD", "").replace(" ", "")
 STAFF_EMAIL = os.environ.get("STAFF_EMAIL", "").strip() or SMTP_USER or "phutungxemay246@gmail.com"
+
+_cached_smtp_password = None
+
+def get_smtp_password():
+    """Lấy SMTP Password an toàn từ cache, biến môi trường hoặc AWS SSM Parameter Store SecureString"""
+    global _cached_smtp_password
+    if _cached_smtp_password:
+        return _cached_smtp_password
+
+    # 1. Thử đọc từ env var trực tiếp (nếu có)
+    pwd = os.environ.get("SMTP_PASSWORD", "").replace(" ", "")
+    if pwd:
+        _cached_smtp_password = pwd
+        return pwd
+
+    # 2. Đọc an toàn từ AWS Systems Manager (SSM) Parameter Store SecureString
+    param_name = os.environ.get("SMTP_PASSWORD_PARAM", "/ecommerce/smtp_password")
+    try:
+        region = os.environ.get("AWS_REGION", "ap-southeast-1")
+        ssm = boto3.client("ssm", region_name=region)
+        resp = ssm.get_parameter(Name=param_name, WithDecryption=True)
+        val = resp.get("Parameter", {}).get("Value", "").replace(" ", "")
+        if val and val != "GMAIL_APP_PASSWORD_DEFAULT":
+            _cached_smtp_password = val
+            return val
+    except Exception as e:
+        print(f"[WARN] Không thể đọc SMTP_PASSWORD từ SSM: {e}")
+
+    return ""
 
 def format_currency(amount):
     """Format số tiền sang định dạng VND"""
@@ -20,6 +49,7 @@ def format_currency(amount):
 
 def send_email_smtp(recipient_email, subject, html_content, plain_text=""):
     """Gửi email HTML qua Gmail SMTP (hỗ trợ cả SSL 465 và TLS 587)"""
+    smtp_password = get_smtp_password()
     msg = MIMEMultipart("alternative")
     msg["Subject"] = subject
     msg["From"] = f"Cửa Hàng Phụ Tùng Xe Máy <{SMTP_USER}>"
@@ -34,7 +64,7 @@ def send_email_smtp(recipient_email, subject, html_content, plain_text=""):
     # 1. Thử qua SSL cổng 465
     try:
         with smtplib.SMTP_SSL(SMTP_SERVER, 465, timeout=10) as server:
-            server.login(SMTP_USER, SMTP_PASSWORD)
+            server.login(SMTP_USER, smtp_password)
             server.sendmail(SMTP_USER, recipient_email, msg.as_string())
             sent = True
     except Exception as e:
@@ -45,7 +75,7 @@ def send_email_smtp(recipient_email, subject, html_content, plain_text=""):
         try:
             with smtplib.SMTP(SMTP_SERVER, 587, timeout=10) as server:
                 server.starttls()
-                server.login(SMTP_USER, SMTP_PASSWORD)
+                server.login(SMTP_USER, smtp_password)
                 server.sendmail(SMTP_USER, recipient_email, msg.as_string())
                 sent = True
         except Exception as e:

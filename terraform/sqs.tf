@@ -10,6 +10,7 @@ locals {
 resource "aws_sqs_queue" "inventory_dlq" {
   name                      = "inventory-dlq${local.queue_suffix}"
   message_retention_seconds = 1209600 # 14 days
+  sqs_managed_sse_enabled   = true
 
   tags = {
     Name        = "inventory-dlq${local.queue_suffix}"
@@ -22,6 +23,7 @@ resource "aws_sqs_queue" "inventory_queue" {
   name                       = "inventory-processing-queue${local.queue_suffix}"
   message_retention_seconds  = 86400 # 1 day
   visibility_timeout_seconds = 30
+  sqs_managed_sse_enabled    = true
 
   redrive_policy = jsonencode({
     deadLetterTargetArn = aws_sqs_queue.inventory_dlq.arn
@@ -39,6 +41,7 @@ resource "aws_sqs_queue" "inventory_queue" {
 resource "aws_sqs_queue" "shipping_dlq" {
   name                      = "shipping-dlq${local.queue_suffix}"
   message_retention_seconds = 1209600 # 14 days
+  sqs_managed_sse_enabled   = true
 
   tags = {
     Name        = "shipping-dlq${local.queue_suffix}"
@@ -51,6 +54,7 @@ resource "aws_sqs_queue" "shipping_queue" {
   name                       = "shipping-processing-queue${local.queue_suffix}"
   message_retention_seconds  = 86400 # 1 day
   visibility_timeout_seconds = 30
+  sqs_managed_sse_enabled    = true
 
   redrive_policy = jsonencode({
     deadLetterTargetArn = aws_sqs_queue.shipping_dlq.arn
@@ -68,6 +72,7 @@ resource "aws_sqs_queue" "shipping_queue" {
 resource "aws_sqs_queue" "notification_dlq" {
   name                      = "notification-dlq${local.queue_suffix}"
   message_retention_seconds = 1209600 # 14 days
+  sqs_managed_sse_enabled   = true
 
   tags = {
     Name        = "notification-dlq${local.queue_suffix}"
@@ -80,6 +85,7 @@ resource "aws_sqs_queue" "notification_queue" {
   name                       = "notification-processing-queue${local.queue_suffix}"
   message_retention_seconds  = 86400 # 1 day
   visibility_timeout_seconds = 30
+  sqs_managed_sse_enabled    = true
 
   redrive_policy = jsonencode({
     deadLetterTargetArn = aws_sqs_queue.notification_dlq.arn
