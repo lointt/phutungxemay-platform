@@ -240,7 +240,8 @@ resource "aws_iam_role_policy" "payment_webhook_policy" {
         Effect = "Allow"
         Action = [
           "dynamodb:GetItem",
-          "dynamodb:UpdateItem"
+          "dynamodb:UpdateItem",
+          "dynamodb:Query"
         ]
         Resource = [
           aws_dynamodb_table.orders.arn,

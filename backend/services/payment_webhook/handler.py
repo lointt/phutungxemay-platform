@@ -82,7 +82,7 @@ def verify_vnpay_signature(params, secret_key):
 def publish_event(detail_type, payload):
     """Phát sự kiện sang EventBridge"""
     try:
-        events_client.put_events(
+        res = events_client.put_events(
             Entries=[
                 {
                     'Source': 'ecommerce.payments',
@@ -92,6 +92,7 @@ def publish_event(detail_type, payload):
                 }
             ]
         )
+        print(f"[EVENT_BRIDGE] Sent {detail_type} for order {payload.get('order_id')}: {res.get('FailedEntryCount', 0)} failures")
     except Exception as e:
         print(f"[ERROR] Không thể gửi event {detail_type} tới EventBridge: {str(e)}")
 
@@ -137,10 +138,10 @@ def lambda_handler(event, context):
     if not params:
         return build_response(400, {"RspCode": "99", "Message": "Dữ liệu webhook rỗng."})
 
-    order_id = params.get('vnp_TxnRef') or params.get('order_id')
-    response_code = params.get('vnp_ResponseCode', '')
-    transaction_id = params.get('vnp_TransactionNo', f"VNP_{int(time.time())}")
-    bank_code = params.get('vnp_BankCode', 'VNPAY')
+    order_id = str(params.get('vnp_TxnRef') or params.get('order_id') or '').strip()
+    response_code = str(params.get('vnp_ResponseCode', '')).strip()
+    transaction_id = str(params.get('vnp_TransactionNo', f"VNP_{int(time.time())}")).strip()
+    bank_code = str(params.get('vnp_BankCode', 'VNPAY')).strip()
 
     if not order_id:
         return build_response(400, {"RspCode": "01", "Message": "Thiếu mã đơn hàng (vnp_TxnRef)."})
@@ -153,6 +154,7 @@ def lambda_handler(event, context):
 
     # Chấp nhận giao dịch nếu chữ ký hợp lệ HOẶC gọi từ return callback CDN CloudFront Edge có response_code '00'
     is_allowed = is_valid_sig or is_mock_test or (verify_origin(event) and response_code == '00')
+    print(f"[VNPAY_IPN] Received callback for order {order_id}, response_code={response_code}, is_allowed={is_allowed}")
     if not is_allowed:
         print(f"[SECURITY_ALERT] Chữ ký VNPay không hợp lệ cho đơn {order_id}!")
         return build_response(200, {"RspCode": "97", "Message": "Invalid Signature"})

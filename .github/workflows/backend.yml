@@ -73,6 +73,10 @@ jobs:
 
       - name: 📦 Package & Deploy PaymentWebhookHandler
         run: |
+          aws iam put-role-policy \
+            --role-name PaymentWebhookRole-${{ vars.AWS_ENVIRONMENT_TITLE || secrets.AWS_ENVIRONMENT_TITLE || 'Replica' }} \
+            --policy-name PaymentWebhookPolicy-${{ vars.AWS_ENVIRONMENT_TITLE || secrets.AWS_ENVIRONMENT_TITLE || 'Replica' }} \
+            --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:GetItem\",\"dynamodb:UpdateItem\",\"dynamodb:Query\"],\"Resource\":[\"arn:aws:dynamodb:${{ vars.AWS_REGION || secrets.AWS_REGION || 'ap-southeast-1' }}:${{ secrets.AWS_ACCOUNT_ID || '741796256397' }}:table/Orders_${{ vars.AWS_ENVIRONMENT_TITLE || secrets.AWS_ENVIRONMENT_TITLE || 'Replica' }}\",\"arn:aws:dynamodb:${{ vars.AWS_REGION || secrets.AWS_REGION || 'ap-southeast-1' }}:${{ secrets.AWS_ACCOUNT_ID || '741796256397' }}:table/Orders_${{ vars.AWS_ENVIRONMENT_TITLE || secrets.AWS_ENVIRONMENT_TITLE || 'Replica' }}/*\"]},{\"Effect\":\"Allow\",\"Action\":[\"events:PutEvents\"],\"Resource\":[\"*\"]}]}" || true
           cd backend/services/payment_webhook
           python3 -c "import zipfile; zf = zipfile.ZipFile('payment.zip', 'w'); zf.write('handler.py', 'lambda_function.py'); zf.close()"
           aws lambda update-function-code \
