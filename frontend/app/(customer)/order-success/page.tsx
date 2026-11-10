@@ -124,6 +124,7 @@ function OrderSuccessContent() {
     }
   }, [rawId, isVnpayPaid, vnpTxnRef]);
 
+  const displayOrderId = order?.order_id || rawId || `ORD_${Date.now().toString().slice(-8)}`;
   const displayShippingFee = order?.shipping_fee ?? 30000;
   const displayFinalAmount =
     (order?.final_amount ?? (order?.total_amount ? order.total_amount + displayShippingFee : 0)) ||
