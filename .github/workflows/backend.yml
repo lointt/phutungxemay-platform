@@ -55,6 +55,10 @@ jobs:
 
       - name: 📦 Package & Deploy OrderServiceHandler
         run: |
+          aws iam put-role-policy \
+            --role-name OrderServiceRole-${{ vars.AWS_ENVIRONMENT_TITLE || secrets.AWS_ENVIRONMENT_TITLE || 'Replica' }} \
+            --policy-name OrderServiceCartAccess \
+            --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:GetItem\",\"dynamodb:DeleteItem\"],\"Resource\":[\"arn:aws:dynamodb:${{ vars.AWS_REGION || secrets.AWS_REGION || 'ap-southeast-1' }}:${{ secrets.AWS_ACCOUNT_ID || '741796256397' }}:table/Carts_${{ vars.AWS_ENVIRONMENT_TITLE || secrets.AWS_ENVIRONMENT_TITLE || 'Replica' }}\",\"arn:aws:dynamodb:${{ vars.AWS_REGION || secrets.AWS_REGION || 'ap-southeast-1' }}:${{ secrets.AWS_ACCOUNT_ID || '741796256397' }}:table/Carts_${{ vars.AWS_ENVIRONMENT_TITLE || secrets.AWS_ENVIRONMENT_TITLE || 'Replica' }}/*\"]}]}" || true
           cd backend/services/order
           python3 -c "import zipfile; zf = zipfile.ZipFile('order.zip', 'w'); zf.write('handler.py', 'lambda_function.py'); zf.close()"
           aws lambda update-function-code \

@@ -173,9 +173,10 @@ resource "aws_iam_role_policy" "order_service_policy" {
         ]
       },
       {
-        Sid    = "ClearCartAfterOrder"
+        Sid    = "CartAccessOrder"
         Effect = "Allow"
         Action = [
+          "dynamodb:GetItem",
           "dynamodb:DeleteItem"
         ]
         Resource = [

@@ -246,11 +246,18 @@ export default function CheckoutPage() {
     }
 
     // 6. Chuyển hướng
-    if (paymentUrl) {
-      window.location.href = paymentUrl;
-    } else {
-      router.push(`/order-success?order_id=${encodeURIComponent(finalOrderId)}&method=${paymentMethod}`);
+    if (paymentMethod === 'VNPAY') {
+      if (paymentUrl) {
+        window.location.href = paymentUrl;
+        return;
+      } else {
+        alert('Không thể khởi tạo phiên thanh toán VNPAY. Vui lòng thử lại sau giây lát hoặc chọn hình thức COD!');
+        setIsSubmitting(false);
+        return;
+      }
     }
+
+    router.push(`/order-success?order_id=${encodeURIComponent(finalOrderId)}&method=${paymentMethod}`);
   }
 
   if (!isLoaded || !user) {

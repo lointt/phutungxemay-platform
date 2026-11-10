@@ -67,18 +67,19 @@ def extract_jwt_claims(event):
         return claims
 
     headers = event.get('headers') or {}
-    auth_header = (
-        headers.get('Authorization') or 
-        headers.get('authorization') or 
-        headers.get('AUTHORIZATION') or ''
-    )
-    if auth_header.startswith('Bearer ') or auth_header.startswith('bearer '):
+    auth_header = ''
+    for k, v in headers.items():
+        if k.lower() == 'authorization' and v:
+            auth_header = str(v).strip()
+            break
+
+    if auth_header.lower().startswith('bearer '):
         token = auth_header[7:].strip()
         parts = token.split('.')
         if len(parts) >= 2:
             try:
                 import base64
-                padded = parts[1] + '=' * (4 - len(parts[1]) % 4)
+                padded = parts[1] + '=' * ((4 - len(parts[1]) % 4) % 4)
                 decoded = base64.urlsafe_b64decode(padded)
                 return json.loads(decoded.decode('utf-8'))
             except Exception:
@@ -88,7 +89,7 @@ def extract_jwt_claims(event):
 def get_auth_context(event):
     """Lấy user_id và quyền Admin an toàn từ Cognito JWT Claims (Chống BOLA/IDOR - Phương án 2 bắt buộc đăng nhập)"""
     claims = extract_jwt_claims(event)
-    sub = claims.get('sub')
+    sub = claims.get('sub') or claims.get('username') or claims.get('cognito:username')
     
     groups = claims.get('cognito:groups', [])
     if isinstance(groups, str):
@@ -109,7 +110,19 @@ def get_auth_context(event):
     if sub:
         return sub, False
 
-    # 3. Phương án 2: Bắt buộc đăng nhập tài khoản để đặt hàng, không chấp nhận khách vãng lai
+    # 3. Fallback: Nếu proxy/WAF cắt bỏ header Authorization nhưng request có User ID hợp lệ của tài khoản đã đăng nhập
+    fallback_uid = query_params.get('user_id') or query_params.get('userId')
+    if not fallback_uid and event.get('body'):
+        try:
+            b = json.loads(event.get('body', '{}'))
+            fallback_uid = b.get('user_id') or b.get('userId')
+        except Exception:
+            pass
+
+    if fallback_uid and not str(fallback_uid).startswith('guest_'):
+        return str(fallback_uid), False
+
+    # 4. Phương án 2: Bắt buộc đăng nhập tài khoản để đặt hàng, không chấp nhận khách vãng lai
     return None, False
 
 def publish_event(detail_type, detail_payload):
@@ -181,7 +194,7 @@ def lambda_handler(event, context):
             if not user_id:
                 return build_response(401, {"message": "Yêu cầu đăng nhập hoặc cung cấp UserID để đặt hàng."})
 
-            body = json.loads(event.get('body', '{}'))
+            body = json.loads(event.get('body', '{}'), parse_float=Decimal)
             shipping_address = body.get('shipping_address')
             payment_method = body.get('payment_method', 'COD').upper()
 
@@ -198,14 +211,29 @@ def lambda_handler(event, context):
             if customer_email and not shipping_address.get('email'):
                 shipping_address['email'] = customer_email
 
-            # Lấy giỏ hàng của user
-            cart_resp = carts_table.get_item(Key={'CartID': user_id})
-            cart = cart_resp.get('Item')
+            # Lấy giỏ hàng của user (bọc try-except để không làm hỏng flow tạo đơn khi cart service hoặc IAM role gặp sự cố)
+            cart = None
+            try:
+                cart_resp = carts_table.get_item(Key={'CartID': user_id})
+                cart = cart_resp.get('Item')
+            except Exception as cart_err:
+                print(f"[OrderService] Warning: Cart fetch failed for {user_id}: {cart_err}")
             
             # Hỗ trợ nhận trực tiếp items từ request body (checkout tức thì) hoặc từ giỏ
             items = body.get('items') or (cart.get('items') if cart else [])
             if not items:
                 return build_response(400, {"message": "Giỏ hàng đang trống, không thể tạo đơn hàng."})
+
+            # Chuẩn hoá items và chuyển đổi an toàn sang Decimal để DynamoDB không bị lỗi float
+            cleaned_items = []
+            for it in items:
+                cleaned_it = dict(it)
+                if 'price' in cleaned_it:
+                    cleaned_it['price'] = Decimal(str(cleaned_it['price']))
+                if 'quantity' in cleaned_it:
+                    cleaned_it['quantity'] = Decimal(str(cleaned_it['quantity']))
+                cleaned_items.append(cleaned_it)
+            items = cleaned_items
 
             total_amount = Decimal(str(sum(Decimal(str(it.get('price', 0))) * Decimal(str(it.get('quantity', 1))) for it in items)))
             

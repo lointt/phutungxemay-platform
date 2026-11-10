@@ -49,18 +49,19 @@ def extract_jwt_claims(event):
         return claims
 
     headers = event.get('headers') or {}
-    auth_header = (
-        headers.get('Authorization') or 
-        headers.get('authorization') or 
-        headers.get('AUTHORIZATION') or ''
-    )
-    if auth_header.startswith('Bearer ') or auth_header.startswith('bearer '):
+    auth_header = ''
+    for k, v in headers.items():
+        if k.lower() == 'authorization' and v:
+            auth_header = str(v).strip()
+            break
+
+    if auth_header.lower().startswith('bearer '):
         token = auth_header[7:].strip()
         parts = token.split('.')
         if len(parts) >= 2:
             try:
                 import base64
-                padded = parts[1] + '=' * (4 - len(parts[1]) % 4)
+                padded = parts[1] + '=' * ((4 - len(parts[1]) % 4) % 4)
                 decoded = base64.urlsafe_b64decode(padded)
                 return json.loads(decoded.decode('utf-8'))
             except Exception:
