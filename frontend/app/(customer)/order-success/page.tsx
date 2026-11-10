@@ -69,7 +69,7 @@ function OrderSuccessContent() {
       }
     }
 
-    // 2. Truy vấn trực tiếp Backend DynamoDB để lấy mã vận đơn GHN thật từ ShippingWorker
+    // 2. Hàm truy vấn Backend DynamoDB để lấy mã vận đơn GHN thật từ ShippingWorker
     const targetOrderId = rawId || (getLocalOrders().length > 0 ? getLocalOrders()[0].order_id : null);
     if (!targetOrderId) return;
 
@@ -93,36 +93,36 @@ function OrderSuccessContent() {
             return merged as Order;
           });
 
-          // Nếu mã tracking chưa về (ShippingWorker đang gọi GHN API trong 1-2s đầu), tự động fetch lại
-          if (!tracking || tracking.includes('kết nối') || tracking.startsWith('GHN')) {
-            if (pollAttempts < 3) {
+          // Nếu mã tracking chưa về (ShippingWorker đang liên hệ GHN API), tự động poll lại tối đa 8 lần
+          if (!tracking || tracking.includes('kết nối') || tracking.includes('Đang')) {
+            if (pollAttempts < 8) {
               pollAttempts++;
-              setTimeout(fetchBackendOrder, 2000);
+              setTimeout(fetchBackendOrder, 2500);
             }
           }
         })
         .catch(() => {});
     };
 
-    fetchBackendOrder();
-  }, [rawId, isVnpayPaid]);
-
-  const displayOrderId = order?.order_id || rawId || `ORD_${Date.now().toString().slice(-8)}`;
-
-  // Tự động kích hoạt đồng bộ IPN sang webhook payment nếu nhận callback từ VNPay
-  useEffect(() => {
+    // 3. Đồng bộ IPN thanh toán VNPAY trước (nếu là giao dịch VNPAY thành công), sau đó bắt đầu lấy mã vận đơn GHN
     if (vnpTxnRef && isVnpayPaid) {
       const search = typeof window !== 'undefined' ? window.location.search : '';
       fetch(`/api/payment/vnpay/ipn${search}`)
         .then((res) => res.json())
         .then((data) => {
           console.log('[VNPAY_RETURN] Đồng bộ thanh toán IPN thành công:', data);
+          // Kích hoạt truy vấn đơn hàng ngay khi IPN xác nhận
+          fetchBackendOrder();
         })
         .catch((err) => {
           console.warn('[VNPAY_RETURN] Lỗi đồng bộ IPN:', err);
+          fetchBackendOrder();
         });
+    } else {
+      // Đối với đơn COD hoặc đã thanh toán trước đó
+      fetchBackendOrder();
     }
-  }, [vnpTxnRef, isVnpayPaid]);
+  }, [rawId, isVnpayPaid, vnpTxnRef]);
 
   const displayShippingFee = order?.shipping_fee ?? 30000;
   const displayFinalAmount =
