@@ -37,10 +37,6 @@ export default async function HomePage() {
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16 md:py-24">
           <div className="grid md:grid-cols-2 gap-12 items-center">
             <div>
-              <div className="inline-flex items-center gap-2 bg-orange-500/20 border border-orange-500/30 rounded-full px-3 py-1 text-xs sm:text-sm text-orange-300 mb-5 sm:mb-6">
-                <span className="w-2 h-2 bg-orange-400 rounded-full animate-pulse" />
-                Hỗ trợ tư vấn 24/7
-              </div>
               <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold leading-tight mb-5 sm:mb-6">
                 Phụ Tùng{' '}
                 <span className="text-orange-400 whitespace-nowrap">Chính Hãng</span>
@@ -87,11 +83,6 @@ export default async function HomePage() {
                     alt="Phụ Tùng Xe Máy Chính Hãng"
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                   />
-                </div>
-                {/* Floating badge */}
-                <div className="absolute -bottom-3 -left-4 bg-slate-900/90 backdrop-blur-md border border-orange-500/30 rounded-2xl px-4 py-2.5 shadow-xl flex items-center gap-2.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-green-400 animate-pulse" />
-                  <span className="text-xs font-bold text-white tracking-wide">Chính Hãng 100%</span>
                 </div>
               </div>
             </div>
