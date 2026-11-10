@@ -88,6 +88,27 @@ class TestMicroservicesSecurity(unittest.TestCase):
         self.assertEqual(user_id, 'customer-111')
         self.assertTrue(is_admin)
 
+    def test_order_service_extracts_sub_from_bearer_token(self):
+        import base64
+        import json
+        payload = {'sub': 'customer-bearer-888', 'email': 'bearer@test.com'}
+        b64_payload = base64.urlsafe_b64encode(json.dumps(payload).encode('utf-8')).decode('utf-8').rstrip('=')
+        mock_jwt = f'eyJhbGciOiJIUzI1NiJ9.{b64_payload}.signature'
+        event = {
+            'headers': {'Authorization': f'Bearer {mock_jwt}'}
+        }
+        user_id, is_admin = get_auth_context(event)
+        self.assertEqual(user_id, 'customer-bearer-888')
+        self.assertFalse(is_admin)
+
+    def test_order_service_rejects_unauthenticated_guest(self):
+        # Guest không có token JWT bị từ chối (Phương án 2)
+        event = {
+            'headers': {'x-guest-id': 'some-guest-id'}
+        }
+        user_id, is_admin = get_auth_context(event)
+        self.assertIsNone(user_id)
+
     # 3. CART SERVICE TESTS
     def test_cart_service_strictly_uses_sub_when_authenticated(self):
         event = {

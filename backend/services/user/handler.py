@@ -42,9 +42,34 @@ def verify_origin(event):
     )
     return received_secret == expected_secret
 
+def extract_jwt_claims(event):
+    """Trích xuất claims từ Cognito Authorizer hoặc giải mã token Bearer từ Authorization header"""
+    claims = event.get('requestContext', {}).get('authorizer', {}).get('claims', {})
+    if claims and isinstance(claims, dict) and claims.get('sub'):
+        return claims
+
+    headers = event.get('headers') or {}
+    auth_header = (
+        headers.get('Authorization') or 
+        headers.get('authorization') or 
+        headers.get('AUTHORIZATION') or ''
+    )
+    if auth_header.startswith('Bearer ') or auth_header.startswith('bearer '):
+        token = auth_header[7:].strip()
+        parts = token.split('.')
+        if len(parts) >= 2:
+            try:
+                import base64
+                padded = parts[1] + '=' * (4 - len(parts[1]) % 4)
+                decoded = base64.urlsafe_b64decode(padded)
+                return json.loads(decoded.decode('utf-8'))
+            except Exception:
+                pass
+    return {}
+
 def get_authenticated_user_id(event):
     """Lấy User ID đã được xác thực an toàn từ Cognito JWT Authorizer (Chống BOLA/IDOR)"""
-    claims = event.get('requestContext', {}).get('authorizer', {}).get('claims', {})
+    claims = extract_jwt_claims(event)
     sub = claims.get('sub')
 
     # Chỉ Admin có claim group Admins mới có quyền truy cập hồ sơ user khác qua query

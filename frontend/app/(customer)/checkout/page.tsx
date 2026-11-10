@@ -67,6 +67,13 @@ export default function CheckoutPage() {
     }
   }, [user]);
 
+  // Phương án 2: Bắt buộc đăng nhập để đặt hàng
+  useEffect(() => {
+    if (isLoaded && !user) {
+      router.replace('/login?redirect=/checkout');
+    }
+  }, [isLoaded, user, router]);
+
   // Nếu giỏ hàng trống sau khi đã load xong và không trong quá trình đặt hàng -> chuyển về giỏ
   useEffect(() => {
     if (isLoaded && items.length === 0 && !isSubmitting && !isOrderPlacedRef.current) {
@@ -246,14 +253,16 @@ export default function CheckoutPage() {
     }
   }
 
-  if (!isLoaded) {
+  if (!isLoaded || !user) {
     return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 animate-pulse space-y-6">
-        <div className="h-6 bg-gray-200 rounded w-1/4" />
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 h-96 bg-gray-200 rounded-2xl" />
-          <div className="h-96 bg-gray-200 rounded-2xl" />
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 text-center space-y-4">
+        <div className="w-16 h-16 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center mx-auto text-2xl font-bold shadow-inner">
+          🔒
         </div>
+        <h2 className="text-xl font-bold text-gray-900">Yêu cầu đăng nhập tài khoản</h2>
+        <p className="text-sm text-gray-500 max-w-md mx-auto">
+          Đang chuyển hướng sang trang đăng nhập để tiếp tục thanh toán đơn hàng và bảo hành phụ tùng...
+        </p>
       </div>
     );
   }

@@ -9,11 +9,13 @@ import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/hooks/use-auth';
 import { useCart } from '@/hooks/use-cart';
 import { cn, formatCurrencyVND, getImageUrl } from '@/lib/utils';
 
 export default function CartPage() {
   const router = useRouter();
+  const { user } = useAuth();
   const { items, subtotal, itemCount, updateQuantity, removeFromCart, clearCart } = useCart();
 
   const [voucherCode, setVoucherCode] = useState('');
@@ -258,7 +260,13 @@ export default function CartPage() {
             </div>
 
             <button
-              onClick={() => router.push('/checkout')}
+              onClick={() => {
+                if (!user) {
+                  router.push('/login?redirect=/checkout');
+                } else {
+                  router.push('/checkout');
+                }
+              }}
               className="w-full py-3.5 bg-orange-500 hover:bg-orange-400 text-white font-bold text-sm rounded-xl transition-all shadow-lg shadow-orange-500/25 flex items-center justify-center gap-2"
             >
               Tiến hành thanh toán →

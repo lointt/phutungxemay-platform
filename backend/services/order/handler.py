@@ -60,9 +60,34 @@ def verify_origin(event):
     )
     return received_secret == expected_secret
 
-def get_auth_context(event):
-    """Lấy user_id và quyền Admin an toàn từ Cognito JWT Claims (Chống BOLA/IDOR)"""
+def extract_jwt_claims(event):
+    """Trích xuất claims từ Cognito Authorizer hoặc giải mã token Bearer từ Authorization header (Chống BOLA/IDOR)"""
     claims = event.get('requestContext', {}).get('authorizer', {}).get('claims', {})
+    if claims and isinstance(claims, dict) and claims.get('sub'):
+        return claims
+
+    headers = event.get('headers') or {}
+    auth_header = (
+        headers.get('Authorization') or 
+        headers.get('authorization') or 
+        headers.get('AUTHORIZATION') or ''
+    )
+    if auth_header.startswith('Bearer ') or auth_header.startswith('bearer '):
+        token = auth_header[7:].strip()
+        parts = token.split('.')
+        if len(parts) >= 2:
+            try:
+                import base64
+                padded = parts[1] + '=' * (4 - len(parts[1]) % 4)
+                decoded = base64.urlsafe_b64decode(padded)
+                return json.loads(decoded.decode('utf-8'))
+            except Exception:
+                pass
+    return {}
+
+def get_auth_context(event):
+    """Lấy user_id và quyền Admin an toàn từ Cognito JWT Claims (Chống BOLA/IDOR - Phương án 2 bắt buộc đăng nhập)"""
+    claims = extract_jwt_claims(event)
     sub = claims.get('sub')
     
     groups = claims.get('cognito:groups', [])
@@ -84,10 +109,8 @@ def get_auth_context(event):
     if sub:
         return sub, False
 
-    # 3. Khách vãng lai (Guest): cho phép tạo đơn với guest session id
-    headers = event.get('headers') or {}
-    guest_id = headers.get('x-guest-id') or headers.get('X-Guest-Id')
-    return guest_id, False
+    # 3. Phương án 2: Bắt buộc đăng nhập tài khoản để đặt hàng, không chấp nhận khách vãng lai
+    return None, False
 
 def publish_event(detail_type, detail_payload):
     """Phát sự kiện lên Amazon EventBridge"""
