@@ -101,6 +101,10 @@ jobs:
 
       - name: 📦 Package & Deploy ShippingWorker
         run: |
+          aws iam put-role-policy \
+            --role-name ShippingWorkerRole-${{ vars.AWS_ENVIRONMENT_TITLE || secrets.AWS_ENVIRONMENT_TITLE || 'Replica' }} \
+            --policy-name ShippingWorkerAccess \
+            --policy-document "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Action\":[\"dynamodb:GetItem\",\"dynamodb:UpdateItem\",\"dynamodb:Query\"],\"Resource\":[\"arn:aws:dynamodb:${{ vars.AWS_REGION || secrets.AWS_REGION || 'ap-southeast-1' }}:${{ secrets.AWS_ACCOUNT_ID || '741796256397' }}:table/Orders_${{ vars.AWS_ENVIRONMENT_TITLE || secrets.AWS_ENVIRONMENT_TITLE || 'Replica' }}\",\"arn:aws:dynamodb:${{ vars.AWS_REGION || secrets.AWS_REGION || 'ap-southeast-1' }}:${{ secrets.AWS_ACCOUNT_ID || '741796256397' }}:table/Orders_${{ vars.AWS_ENVIRONMENT_TITLE || secrets.AWS_ENVIRONMENT_TITLE || 'Replica' }}/*\"]},{\"Effect\":\"Allow\",\"Action\":[\"events:PutEvents\"],\"Resource\":[\"*\" ]}]}" || true
           cd backend/workers/shipping
           python3 -c "import zipfile; zf = zipfile.ZipFile('shipping.zip', 'w'); zf.write('handler.py', 'lambda_function.py'); zf.close()"
           aws lambda update-function-code \

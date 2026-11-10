@@ -400,11 +400,22 @@ resource "aws_iam_role_policy" "shipping_worker_policy" {
         Effect = "Allow"
         Action = [
           "dynamodb:GetItem",
-          "dynamodb:UpdateItem"
+          "dynamodb:UpdateItem",
+          "dynamodb:Query"
         ]
         Resource = [
           aws_dynamodb_table.orders.arn,
           "${aws_dynamodb_table.orders.arn}/*"
+        ]
+      },
+      {
+        Sid    = "PublishShippingEvents"
+        Effect = "Allow"
+        Action = [
+          "events:PutEvents"
+        ]
+        Resource = [
+          aws_cloudwatch_event_bus.ecommerce_bus.arn
         ]
       }
     ]

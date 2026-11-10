@@ -98,7 +98,7 @@ def resolve_district_and_ward(addr_text):
 
 def call_ghn_create_order(order_id, shipping_address, items, cod_amount=0):
     """Gọi GHN API v2 tạo đơn vận chuyển thật"""
-    print(f"[GHN_API] Tạo đơn GHN cho #{order_id} (COD: {cod_amount}đ)...")
+    print(f"[GHN_API] Creating GHN order for #{order_id} (COD: {cod_amount})...")
 
     full_addr = shipping_address.get('address') or f"{shipping_address.get('street', '')}, {shipping_address.get('ward', '')}, {shipping_address.get('district', '')}, {shipping_address.get('province', '')}"
     ward_name = shipping_address.get('ward') or 'Phường 12'
@@ -156,7 +156,7 @@ def call_ghn_create_order(order_id, shipping_address, items, cod_amount=0):
                 if resp_json.get('code') == 200:
                     order_code = resp_json['data']['order_code']
                     exp_time = resp_json['data'].get('expected_delivery_time', '')
-                    print(f"[GHN_API_SUCCESS] GHN Sandbox tạo đơn thành công: Mã vận đơn {order_code}")
+                    print(f"[GHN_API_SUCCESS] GHN Sandbox created order: Tracking code {order_code}")
                     return {
                         "success": True,
                         "tracking_number": order_code,
@@ -166,7 +166,7 @@ def call_ghn_create_order(order_id, shipping_address, items, cod_amount=0):
                 else:
                     print(f"[GHN_API_ERROR] GHN API returned code {resp_json.get('code')}: {resp_json.get('message')}")
         except Exception as e:
-            print(f"[GHN_API_WARNING] GHN API Sandbox không khả dụng ({str(e)}), dùng chuẩn tracking fallback.")
+            print(f"[GHN_API_WARNING] GHN API Sandbox unavailable ({str(e)}), using tracking fallback.")
 
     unique_suffix = int(time.time() * 1000) % 1000000000
     tracking_number = f"GHN{unique_suffix:09d}VN"
@@ -191,52 +191,61 @@ def process_shipping_event(detail_type, detail):
     order_id = detail.get('order_id') or detail.get('OrderID')
     payment_method = str(detail.get('payment_method', '')).upper()
 
-    print(f"[SHIPPING_WORKER] Tiếp nhận sự kiện '{detail_type}' cho đơn #{order_id}")
+    print(f"[SHIPPING_WORKER] Tiep nhan su kien '{detail_type}' cho don #{order_id} (PTTT: {payment_method})")
 
     should_create_shipment = (detail_type in ['PaymentSuccess', 'PAYMENT_COMPLETED']) or \
                              (detail_type in ['OrderPlaced', 'ORDER_CREATED'] and payment_method == 'COD')
 
     if should_create_shipment:
-        order = get_order_by_id(order_id)
-        if not order:
-            print(f"[ERROR] Không tìm thấy đơn hàng {order_id} trong Orders.")
+        order = None
+        try:
+            order = get_order_by_id(order_id)
+        except Exception as q_err:
+            print(f"[WARN] Error querying order {order_id}: {q_err}")
+
+        # Lấy thông tin từ order hoặc fallback từ detail payload
+        user_id = (order.get('UserID') if order else None) or detail.get('user_id') or detail.get('UserID')
+        if not user_id:
+            print(f"[ERROR] Khong tim thay user_id cho don #{order_id}")
             return
 
-        if order.get('tracking_number'):
-            print(f"[SKIP] Đơn {order_id} đã có tracking {order.get('tracking_number')}, bỏ qua.")
+        if order and order.get('tracking_number'):
+            print(f"[SKIP] Don {order_id} da co tracking {order.get('tracking_number')}, bo qua.")
             return
 
-        user_id = order['UserID']
-        shipping_address = order.get('shipping_address', {})
-        items = order.get('items', [])
+        shipping_address = (order.get('shipping_address') if order else None) or detail.get('shipping_address', {})
+        items = (order.get('items') if order else None) or detail.get('items', [])
 
-        is_cod = order.get('payment', {}).get('method') == 'COD'
-        cod_amount = order.get('final_amount', order.get('total_amount', 0)) if is_cod else 0
+        is_cod = payment_method == 'COD' or (order.get('payment', {}).get('method') == 'COD' if order else False)
+        cod_amount = (order.get('final_amount') if order else None) or detail.get('final_amount') or detail.get('total_amount', 0) if is_cod else 0
 
         ship_res = call_ghn_create_order(order_id, shipping_address, items, cod_amount)
         tracking_number = ship_res['tracking_number']
         estimated_delivery = ship_res['estimated_delivery']
         now_iso = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
 
-        orders_table.update_item(
-            Key={'UserID': user_id, 'OrderID': order_id},
-            UpdateExpression="SET #tn = :tn, #ss = :ss, #sp = :sp, #ed = :ed, #u = :u",
-            ExpressionAttributeNames={
-                '#tn': 'tracking_number',
-                '#ss': 'shipping_status',
-                '#sp': 'shipping_partner',
-                '#ed': 'estimated_delivery',
-                '#u': 'updated_at'
-            },
-            ExpressionAttributeValues={
-                ':tn': tracking_number,
-                ':ss': 'READY_TO_PICK',
-                ':sp': 'Giao Hàng Nhanh (GHN)',
-                ':ed': estimated_delivery,
-                ':u': now_iso
-            }
-        )
-        print(f"[SUCCESS] Đã gán mã vận đơn {tracking_number} (GHN) cho đơn #{order_id}")
+        try:
+            orders_table.update_item(
+                Key={'UserID': user_id, 'OrderID': order_id},
+                UpdateExpression="SET #tn = :tn, #ss = :ss, #sp = :sp, #ed = :ed, #u = :u",
+                ExpressionAttributeNames={
+                    '#tn': 'tracking_number',
+                    '#ss': 'shipping_status',
+                    '#sp': 'shipping_partner',
+                    '#ed': 'estimated_delivery',
+                    '#u': 'updated_at'
+                },
+                ExpressionAttributeValues={
+                    ':tn': tracking_number,
+                    ':ss': 'READY_TO_PICK',
+                    ':sp': 'Giao Hàng Nhanh (GHN)',
+                    ':ed': estimated_delivery,
+                    ':u': now_iso
+                }
+            )
+            print(f"[SUCCESS] Assigned tracking {tracking_number} (GHN) to order #{order_id}")
+        except Exception as u_err:
+            print(f"[ERROR] Could not update order {order_id} tracking: {u_err}")
 
         try:
             events_client.put_events(
@@ -256,7 +265,7 @@ def process_shipping_event(detail_type, detail):
                 ]
             )
         except Exception as e:
-            print(f"[EVENT_ERROR] Lỗi gửi ShippingOrderCreated: {e}")
+            print(f"[EVENT_ERROR] Loi gui ShippingOrderCreated: {e}")
 
     elif detail_type == 'OrderCancelled':
         order = get_order_by_id(order_id)
@@ -270,11 +279,11 @@ def process_shipping_event(detail_type, detail):
                     ':u': now_iso
                 }
             )
-            print(f"[SUCCESS] Đã đánh dấu hủy vận đơn cho đơn {order_id}")
+            print(f"[SUCCESS] Marked carrier cancellation for order {order_id}")
 
 def lambda_handler(event, context):
     records = event.get('Records', [])
-    print(f"[SQS] ShippingWorker nhận {len(records)} message cần xử lý.")
+    print(f"[SQS] ShippingWorker received {len(records)} messages.")
 
     for record in records:
         try:
@@ -285,7 +294,7 @@ def lambda_handler(event, context):
             if detail_type and detail:
                 process_shipping_event(detail_type, detail)
         except Exception as e:
-            print(f"[FATAL_ERROR] Lỗi khi xử lý shipping record: {str(e)}")
+            print(f"[FATAL_ERROR] Error processing shipping record: {str(e)}")
             raise e
 
     return {"status": "SUCCESS", "processed_records": len(records)}
