@@ -10,48 +10,35 @@ const STORAGE_KEY = 'phutung_orders';
 const GUEST_KEY = 'phutung_guest_orders';
 
 /**
- * Tự động lọc bỏ các đơn hàng trùng lặp do lưu tạm client ID trước khi nhận server ID
+ * Khử trùng lặp đơn hàng theo order_id (giữ lại bản ghi mới nhất và đầy đủ mã vận đơn nhất)
  */
 function deduplicateOrders(orders: Order[]): Order[] {
-  const result: Order[] = [];
-  const seenSignatures = new Set<string>();
+  const map = new Map<string, Order>();
 
   for (const o of orders) {
-    // Tạo chữ ký nhận diện đơn: cùng danh sách sản phẩm, số lượng và tổng tiền
-    const itemSig = (o.items || [])
-      .map((i) => `${i.product_id}:${i.quantity}`)
-      .sort()
-      .join('|');
-    const signature = `${itemSig}_${o.total_amount}`;
+    const id = o.order_id || (o as unknown as { OrderID?: string }).OrderID;
+    if (!id) continue;
 
-    // Nếu đã có 1 đơn giống hệt: ưu tiên giữ đơn có mã server (có dấu gạch dưới như ORD_179... hoặc có tracking)
-    if (seenSignatures.has(signature)) {
-      const existingIdx = result.findIndex((r) => {
-        const rSig = (r.items || [])
-          .map((i) => `${i.product_id}:${i.quantity}`)
-          .sort()
-          .join('|') + `_${r.total_amount}`;
-        return rSig === signature;
+    const existing = map.get(id);
+    if (!existing) {
+      map.set(id, { ...o, order_id: id });
+    } else {
+      map.set(id, {
+        ...existing,
+        ...o,
+        order_id: id,
+        tracking_number: o.tracking_number || existing.tracking_number,
+        shipping_partner: o.shipping_partner || existing.shipping_partner,
+        shipping_status: o.shipping_status || existing.shipping_status,
+        order_status: o.order_status || existing.order_status,
       });
-
-      if (existingIdx !== -1) {
-        const existing = result[existingIdx];
-        const isCurrentBetter =
-          (o.tracking_number && !existing.tracking_number) ||
-          (o.order_id.includes('_') && o.order_id.length > existing.order_id.length);
-
-        if (isCurrentBetter) {
-          result[existingIdx] = o;
-        }
-      }
-      continue;
     }
-
-    seenSignatures.add(signature);
-    result.push(o);
   }
 
-  return result;
+  // Luôn sắp xếp đơn hàng mới nhất lên đầu theo thời gian tạo
+  return Array.from(map.values()).sort(
+    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+  );
 }
 
 export function saveLocalOrder(order: Order): void {

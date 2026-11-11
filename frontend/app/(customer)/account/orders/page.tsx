@@ -59,58 +59,37 @@ export default function CustomerOrdersPage() {
           });
 
           const mergedMap = new Map<string, Order>();
-          local.forEach((o) => mergedMap.set(o.order_id, o));
+          // 1. Thêm đơn hàng từ localStorage
+          local.forEach((o) => {
+            const id = o.order_id || (o as unknown as { OrderID?: string }).OrderID;
+            if (id) mergedMap.set(id, { ...o, order_id: id });
+          });
+
+          // 2. Ưu tiên ghi đè thông tin chính xác thời gian thực từ DynamoDB Backend
           userApiItems.forEach((o) => {
-            const existing = mergedMap.get(o.order_id);
-            mergedMap.set(o.order_id, {
+            const id = o.order_id || (o as unknown as { OrderID?: string }).OrderID;
+            if (!id) return;
+            const existing = mergedMap.get(id);
+            mergedMap.set(id, {
               ...existing,
               ...o,
+              order_id: id,
               tracking_number: o.tracking_number || existing?.tracking_number,
               shipping_partner: o.shipping_partner || existing?.shipping_partner || 'Giao Hàng Nhanh (GHN)',
+              shipping_status: o.shipping_status || existing?.shipping_status,
+              order_status: o.order_status || existing?.order_status || 'PLACED',
             });
           });
 
-          // Khử trùng lặp: nếu có 2 đơn có cùng sản phẩm và tổng tiền, ưu tiên đơn có mã server
-          const rawMerged = Array.from(mergedMap.values());
-          const seenSignatures = new Set<string>();
-          const deduped: Order[] = [];
+          // 3. Luôn sắp xếp đơn hàng mới nhất lên đầu theo created_at
+          const sortedOrders = Array.from(mergedMap.values()).sort(
+            (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+          );
 
-          for (const ord of rawMerged) {
-            const sig = (ord.items || [])
-              .map((i) => `${i.product_id}:${i.quantity}`)
-              .sort()
-              .join('|') + `_${ord.total_amount}`;
+          setOrders(sortedOrders);
 
-            if (seenSignatures.has(sig)) {
-              const existingIdx = deduped.findIndex((d) => {
-                const dSig = (d.items || [])
-                  .map((i) => `${i.product_id}:${i.quantity}`)
-                  .sort()
-                  .join('|') + `_${d.total_amount}`;
-                return dSig === sig;
-              });
-
-              if (existingIdx !== -1) {
-                const existing = deduped[existingIdx];
-                // Giữ đơn có mã dài hơn (mã server) hoặc có mã vận đơn
-                if (
-                  (ord.tracking_number && !existing.tracking_number) ||
-                  (ord.order_id.includes('_') && ord.order_id.length > existing.order_id.length)
-                ) {
-                  deduped[existingIdx] = ord;
-                }
-              }
-              continue;
-            }
-
-            seenSignatures.add(sig);
-            deduped.push(ord);
-          }
-
-          setOrders(deduped);
-
-          // 3. Đồng bộ mã vận đơn thật từ DynamoDB qua /api/orders/{id}
-          deduped.forEach((ord) => {
+          // 4. Đồng bộ mã vận đơn thật từ DynamoDB qua /api/orders/{id}
+          sortedOrders.forEach((ord) => {
             fetch(`/api/orders/${ord.order_id}`)
               .then((r) => (r.ok ? r.json() : null))
               .then((backendOrder) => {
@@ -196,7 +175,13 @@ export default function CustomerOrdersPage() {
   const filteredOrders =
     selectedStatus === 'ALL'
       ? orders
-      : orders.filter((o) => o.order_status === selectedStatus);
+      : orders.filter((o) => {
+          if (selectedStatus === 'PLACED') {
+            // Mục "Chờ xử lý" hiển thị các đơn mới tạo (PLACED) lẫn đơn vừa thanh toán đang chờ chuẩn bị (PROCESSING)
+            return o.order_status === 'PLACED' || o.order_status === 'PROCESSING';
+          }
+          return o.order_status === selectedStatus;
+        });
 
   if (authLoading || isLoading) {
     return (
