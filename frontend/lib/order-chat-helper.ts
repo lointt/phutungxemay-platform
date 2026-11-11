@@ -72,6 +72,35 @@ export async function checkOrderInChat(text: string): Promise<string | null> {
   const trimmed = text.trim();
   const lower = trimmed.toLowerCase();
 
+  // 0. BỎ QUA NGAY NẾU LÀ CÂU HỎI CHUYỂN NHÂN VIÊN HOẶC CHÍNH SÁCH / PHÍ SHIP / BẢO HÀNH / KHIẾU NẠI
+  // Các câu này bắt buộc phải để AI Backend (Gemini RAG + Tool request_human_agent) xử lý
+  const isAgentOrPolicyQuery =
+    lower.includes('nhân viên') ||
+    lower.includes('người thật') ||
+    lower.includes('chăm sóc khách hàng') ||
+    lower.includes('cskh') ||
+    lower.includes('khiếu nại') ||
+    lower.includes('sai sản phẩm') ||
+    lower.includes('giao sai') ||
+    lower.includes('hỏng') ||
+    lower.includes('lỗi') ||
+    lower.includes('bao nhiêu') ||
+    lower.includes('miễn phí') ||
+    lower.includes('freeship') ||
+    lower.includes('phí ship') ||
+    lower.includes('vận chuyển') ||
+    lower.includes('chính sách') ||
+    lower.includes('hủy đơn') ||
+    lower.includes('huỷ đơn') ||
+    lower.includes('đổi trả') ||
+    lower.includes('bảo hành') ||
+    lower.includes('tại sao') ||
+    lower.includes('làm sao');
+
+  if (isAgentOrPolicyQuery) {
+    return null;
+  }
+
   // 1. Tìm mã đơn hàng dạng ORD_... hoặc chuỗi mã đơn
   const orderIdMatch = trimmed.match(/ORD[_-]?[A-Za-z0-9_-]+/i);
 
@@ -108,18 +137,31 @@ Hệ thống chưa tìm thấy thông tin đơn hàng có mã **${rawId}**.
     }
   }
 
-  // 2. Kiểm tra xem người dùng có hỏi chung chung về đơn hàng không
-  const isGenericOrderQuery =
-    lower.includes('đơn hàng') ||
-    lower.includes('don hang') ||
-    lower.includes('kiểm tra đơn') ||
-    lower.includes('kiem tra don') ||
-    lower.includes('tra cứu đơn') ||
-    lower.includes('tra cuu don') ||
-    lower.includes('tình trạng đơn') ||
-    lower.includes('tiến độ đơn');
+  // 2. Chỉ hiển thị danh sách đơn gần đây khi người dùng THỰC SỰ muốn kiểm tra đơn của mình
+  const explicitOrderCheckPhrases = [
+    'kiểm tra đơn hàng của tôi',
+    'kiem tra don hang cua toi',
+    'tra cứu đơn hàng của tôi',
+    'tra cuu don hang cua toi',
+    'xem đơn hàng của tôi',
+    'xem don hang cua toi',
+    'tình trạng đơn hàng của tôi',
+    'tiến độ đơn hàng của tôi',
+    'danh sách đơn hàng của tôi',
+    'đơn hàng của tôi đâu',
+    'đơn của tôi đâu',
+    'đơn của tôi đang ở đâu',
+    'đơn hàng gần đây của tôi',
+  ];
 
-  if (isGenericOrderQuery) {
+  const isExplicitOrderQuery =
+    explicitOrderCheckPhrases.some((phrase) => lower.includes(phrase)) ||
+    lower === 'kiểm tra đơn hàng' ||
+    lower === 'tra cứu đơn hàng' ||
+    lower === 'xem đơn hàng' ||
+    lower === 'đơn hàng của tôi';
+
+  if (isExplicitOrderQuery) {
     const all = getLocalOrders();
     if (all.length > 0) {
       const recentList = all
