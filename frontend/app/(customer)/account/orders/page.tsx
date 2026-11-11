@@ -191,13 +191,7 @@ export default function CustomerOrdersPage() {
   const filteredOrders =
     selectedStatus === 'ALL'
       ? orders
-      : orders.filter((o) => {
-          if (selectedStatus === 'PLACED') {
-            // Mục "Chờ xử lý" hiển thị các đơn mới tạo (PLACED) lẫn đơn vừa thanh toán đang chờ chuẩn bị (PROCESSING)
-            return o.order_status === 'PLACED' || o.order_status === 'PROCESSING';
-          }
-          return o.order_status === selectedStatus;
-        });
+      : orders.filter((o) => o.order_status === selectedStatus);
 
   if (authLoading || isLoading) {
     return (

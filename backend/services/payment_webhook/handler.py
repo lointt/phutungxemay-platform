@@ -201,7 +201,7 @@ def lambda_handler(event, context):
                     ":payment": payment_info,
                     ":pm": "VNPAY",
                     ":ps": "PAID",
-                    ":status": "PROCESSING",
+                    ":status": "PLACED",
                     ":updated_at": now_iso
                 }
             )
