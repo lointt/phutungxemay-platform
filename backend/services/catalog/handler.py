@@ -56,11 +56,38 @@ def verify_origin(event):
     )
     return received_secret == expected_secret
 
+def extract_jwt_claims(event):
+    """Trích xuất claims từ Cognito Authorizer hoặc giải mã token Bearer từ Authorization header"""
+    claims = event.get('requestContext', {}).get('authorizer', {}).get('claims', {})
+    if claims and isinstance(claims, dict) and claims.get('sub'):
+        return claims
+
+    headers = event.get('headers') or {}
+    auth_header = ''
+    for k, v in headers.items():
+        if k.lower() == 'authorization' and v:
+            auth_header = str(v).strip()
+            break
+
+    if auth_header.lower().startswith('bearer '):
+        token = auth_header[7:].strip()
+        parts = token.split('.')
+        if len(parts) >= 2:
+            try:
+                import base64
+                padded = parts[1] + '=' * ((4 - len(parts[1]) % 4) % 4)
+                decoded = base64.urlsafe_b64decode(padded)
+                return json.loads(decoded.decode('utf-8'))
+            except Exception:
+                pass
+    return {}
+
 def is_admin(event):
-    """Kiểm tra quyền Admin từ Cognito Authorizer claims hoặc token nội bộ an toàn (Zero-Trust)"""
+    """Kiểm tra quyền Admin từ Cognito JWT (Admins group hoặc Admin email)"""
     try:
-        # 1. Kiểm tra claims từ Cognito Authorizer (JWT)
-        claims = event.get('requestContext', {}).get('authorizer', {}).get('claims', {})
+        claims = extract_jwt_claims(event)
+
+        # 1. Kiểm tra claims từ Cognito Groups
         groups = claims.get('cognito:groups', [])
         if isinstance(groups, str):
             group_list = [g.strip() for g in groups.split(',') if g.strip()]
@@ -69,7 +96,16 @@ def is_admin(event):
         elif isinstance(groups, list) and 'Admins' in groups:
             return True
 
-        # 2. Hỗ trợ xác thực nội bộ an toàn (chống giả mạo header x-role thuần túy)
+        # 2. Kiểm tra email quản trị viên được uỷ quyền
+        email = str(claims.get('email') or '').strip().lower()
+        ADMIN_EMAILS = [
+            'phutungxemay246@gmail.com',
+            'nguyentantailoi03052005@gmail.com'
+        ]
+        if email in ADMIN_EMAILS:
+            return True
+
+        # 3. Hỗ trợ xác thực nội bộ an toàn (chống giả mạo header x-role thuần túy)
         headers = event.get('headers') or {}
         role = headers.get('x-role') or headers.get('X-Role') or ''
         admin_key = headers.get('x-admin-key') or headers.get('X-Admin-Key') or ''
@@ -166,6 +202,8 @@ def lambda_handler(event, context):
                 if field not in body:
                     return build_response(400, {"message": f"Thiếu trường bắt buộc: {field}"})
 
+            import time
+            now_iso = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
             item = {
                 'ProductID': str(body['ProductID']),
                 'name': str(body['name']),
@@ -177,7 +215,11 @@ def lambda_handler(event, context):
                 'sku': str(body.get('sku', body['ProductID'])),
                 'image_url': str(body.get('image_url', '')),
                 'image_urls': body.get('image_urls', []),
-                'compatible_models': body.get('compatible_models', [])
+                'compatible_models': body.get('compatible_models', []),
+                'status': 'ACTIVE',
+                'is_active': True,
+                'created_at': body.get('created_at') or now_iso,
+                'updated_at': now_iso
             }
             table.put_item(Item=item)
             return build_response(201, {"message": "Thêm sản phẩm thành công", "product": item})
