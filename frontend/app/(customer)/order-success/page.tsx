@@ -191,7 +191,7 @@ function OrderSuccessContent() {
             Tiến trình vận đơn & Xử lý
           </h2>
           <OrderTimeline
-            status={order?.order_status || 'PLACED'}
+            status="PLACED"
             createdAt={order?.created_at || new Date().toISOString()}
             estimatedDelivery={order?.estimated_delivery}
           />

@@ -15,7 +15,7 @@ import { useAuth } from '@/hooks/use-auth';
 import apiClient from '@/lib/api-client';
 import { getLocalOrders, saveLocalOrder, updateLocalOrderStatus } from '@/lib/order-storage';
 import { cn, formatCurrencyVND, formatDate, getImageUrl } from '@/lib/utils';
-import type { Order, OrderStatus } from '@/types/order';
+import type { Order, OrderStatus, PaymentMethod, PaymentStatus } from '@/types/order';
 
 const STATUS_TABS: { label: string; value: OrderStatus | 'ALL' }[] = [
   { label: 'Tất cả', value: 'ALL' },
@@ -62,7 +62,17 @@ export default function CustomerOrdersPage() {
           // 1. Thêm đơn hàng từ localStorage
           local.forEach((o) => {
             const id = o.order_id || (o as unknown as { OrderID?: string }).OrderID;
-            if (id) mergedMap.set(id, { ...o, order_id: id });
+            if (id) {
+              const rawPayment = (o as unknown as { payment?: { method?: string; status?: string } }).payment;
+              const pMethod = o.payment_method || rawPayment?.method || 'COD';
+              const pStatus = o.payment_status || rawPayment?.status || (pMethod === 'VNPAY' ? 'PAID' : 'PENDING');
+              mergedMap.set(id, {
+                ...o,
+                order_id: id,
+                payment_method: pMethod as PaymentMethod,
+                payment_status: pStatus as PaymentStatus,
+              });
+            }
           });
 
           // 2. Ưu tiên ghi đè thông tin chính xác thời gian thực từ DynamoDB Backend
@@ -70,10 +80,16 @@ export default function CustomerOrdersPage() {
             const id = o.order_id || (o as unknown as { OrderID?: string }).OrderID;
             if (!id) return;
             const existing = mergedMap.get(id);
+            const rawPayment = (o as unknown as { payment?: { method?: string; status?: string } }).payment;
+            const pMethod = o.payment_method || rawPayment?.method || existing?.payment_method || 'COD';
+            const pStatus = o.payment_status || rawPayment?.status || existing?.payment_status || (pMethod === 'VNPAY' ? 'PAID' : 'PENDING');
+
             mergedMap.set(id, {
               ...existing,
               ...o,
               order_id: id,
+              payment_method: pMethod as PaymentMethod,
+              payment_status: pStatus as PaymentStatus,
               tracking_number: o.tracking_number || existing?.tracking_number,
               shipping_partner: o.shipping_partner || existing?.shipping_partner || 'Giao Hàng Nhanh (GHN)',
               shipping_status: o.shipping_status || existing?.shipping_status,
@@ -285,8 +301,8 @@ export default function CustomerOrdersPage() {
 
                 <div className="flex items-center gap-2">
                   <StatusBadge status={order.order_status} />
-                  <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded text-[11px] font-medium">
-                    {order.payment_method}
+                  <span className="px-2.5 py-0.5 bg-gray-100 text-gray-700 font-bold rounded text-[11px] border border-gray-200 uppercase">
+                    {order.payment_method || (order as unknown as { payment?: { method?: string } }).payment?.method || 'COD'}
                   </span>
                 </div>
               </div>
@@ -358,7 +374,9 @@ export default function CustomerOrdersPage() {
                   <div className="text-right">
                     <span className="text-xs text-gray-500">Tổng thanh toán: </span>
                     <span className="text-base font-extrabold text-orange-600">
-                      {formatCurrencyVND(order.total_amount)}
+                      {(order.payment_method === 'VNPAY' || (order as unknown as { payment?: { method?: string } }).payment?.method === 'VNPAY' || order.payment_status === 'PAID')
+                        ? '0 đ'
+                        : formatCurrencyVND(order.final_amount ?? order.total_amount)}
                     </span>
                   </div>
 

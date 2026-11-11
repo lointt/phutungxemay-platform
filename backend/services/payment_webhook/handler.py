@@ -189,14 +189,18 @@ def lambda_handler(event, context):
 
             orders_table.update_item(
                 Key={'UserID': user_id, 'OrderID': order_id},
-                UpdateExpression="SET #payment = :payment, #status = :status, #updated_at = :updated_at",
+                UpdateExpression="SET #payment = :payment, #pm = :pm, #ps = :ps, #status = :status, #updated_at = :updated_at",
                 ExpressionAttributeNames={
                     "#payment": "payment",
+                    "#pm": "payment_method",
+                    "#ps": "payment_status",
                     "#status": "order_status",
                     "#updated_at": "updated_at"
                 },
                 ExpressionAttributeValues={
                     ":payment": payment_info,
+                    ":pm": "VNPAY",
+                    ":ps": "PAID",
                     ":status": "PROCESSING",
                     ":updated_at": now_iso
                 }

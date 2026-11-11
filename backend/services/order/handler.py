@@ -255,6 +255,8 @@ def lambda_handler(event, context):
                 "shipping_fee": shipping_fee,
                 "final_amount": final_amount,
                 "shipping_address": shipping_address,
+                "payment_method": payment_method,
+                "payment_status": "PENDING",
                 "payment": {
                     "method": payment_method,
                     "status": "PENDING"
@@ -322,9 +324,14 @@ def lambda_handler(event, context):
             # Chỉ scan toàn bộ đơn nếu là Admin VÀ KHÔNG PHẢI xem đơn cá nhân (scope != 'me')
             if is_admin and scope != 'me':
                 response = orders_table.scan(Limit=50)
+                raw_orders = response.get('Items', [])
+                for o in raw_orders:
+                    if 'payment' in o and isinstance(o['payment'], dict):
+                        o['payment_method'] = o.get('payment_method') or o['payment'].get('method', 'COD')
+                        o['payment_status'] = o.get('payment_status') or o['payment'].get('status', 'PENDING')
                 return build_response(200, {
                     "role": "Admin",
-                    "orders": response.get('Items', []),
+                    "orders": raw_orders,
                     "count": response.get('Count', 0)
                 })
 
@@ -335,9 +342,14 @@ def lambda_handler(event, context):
                 KeyConditionExpression=Key('UserID').eq(user_id),
                 ScanIndexForward=False
             )
+            raw_orders = response.get('Items', [])
+            for o in raw_orders:
+                if 'payment' in o and isinstance(o['payment'], dict):
+                    o['payment_method'] = o.get('payment_method') or o['payment'].get('method', 'COD')
+                    o['payment_status'] = o.get('payment_status') or o['payment'].get('status', 'PENDING')
             return build_response(200, {
                 "role": "Customer",
-                "orders": response.get('Items', []),
+                "orders": raw_orders,
                 "count": response.get('Count', 0)
             })
 
@@ -352,6 +364,9 @@ def lambda_handler(event, context):
                 return build_response(404, {"message": f"Không tìm thấy đơn hàng {order_id}"})
 
             order = items[0]
+            if 'payment' in order and isinstance(order['payment'], dict):
+                order['payment_method'] = order.get('payment_method') or order['payment'].get('method', 'COD')
+                order['payment_status'] = order.get('payment_status') or order['payment'].get('status', 'PENDING')
             # Ngăn chặn User A xem trộm đơn hàng của User B (Chống BOLA/IDOR)
             if not is_admin and user_id and order.get('UserID') and order.get('UserID') != user_id:
                 return build_response(403, {"message": "Forbidden: Bạn không có quyền truy cập đơn hàng này."})

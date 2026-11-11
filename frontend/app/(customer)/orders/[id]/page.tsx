@@ -338,7 +338,9 @@ function OrderTrackingContent({ params }: PageProps) {
           <div className="pt-2 border-t border-gray-200 flex justify-between items-baseline text-sm font-bold">
             <span className="text-gray-900">Tổng thanh toán:</span>
             <span className="text-orange-600 font-extrabold text-base">
-              {formatCurrencyVND(order.total_amount)}
+              {order.payment_method === 'VNPAY' || (order as unknown as { payment?: { method?: string } }).payment?.method === 'VNPAY' || order.payment_status === 'PAID'
+                ? '0 đ'
+                : formatCurrencyVND(order.final_amount ?? order.total_amount)}
             </span>
           </div>
         </div>
