@@ -123,8 +123,8 @@ export function normalizeProduct(raw: Record<string, unknown>): Product {
     specs: (raw.specs as Record<string, string>) ?? {},
     status: String(raw.status ?? 'ACTIVE'),
     is_active: raw.status !== 'INACTIVE',
-    created_at: String(raw.created_at ?? '2026-01-01T00:00:00.000Z'),
-    updated_at: String(raw.updated_at ?? '2026-01-01T00:00:00.000Z'),
+    created_at: String(raw.created_at ?? raw.createdAt ?? '2026-01-01T00:00:00.000Z'),
+    updated_at: String(raw.updated_at ?? raw.updatedAt ?? raw.created_at ?? raw.createdAt ?? '2026-01-01T00:00:00.000Z'),
   };
 }
 
@@ -139,7 +139,7 @@ export async function getProducts(filter?: ProductFilter): Promise<ProductListRe
 
     try {
       const res = await fetch(`${API_BASE}/api/products`, {
-        next: { revalidate: 15 },
+        cache: 'no-store',
       });
 
       if (res.ok) {
@@ -239,11 +239,11 @@ export async function getProducts(filter?: ProductFilter): Promise<ProductListRe
         return b.product_id.localeCompare(a.product_id);
       });
     } else {
-      // Mặc định: Phổ biến nhất (ưu tiên sản phẩm chính chuẩn PROD_ và còn nhiều tồn kho)
+      // Mặc định: Phổ biến nhất & Mới nhất (ưu tiên sản phẩm vừa thêm/cập nhật)
       items = [...items].sort((a, b) => {
-        const aIsStd = a.product_id.startsWith('PROD_') ? 1 : 0;
-        const bIsStd = b.product_id.startsWith('PROD_') ? 1 : 0;
-        if (bIsStd !== aIsStd) return bIsStd - aIsStd;
+        const timeA = Date.parse(a.updated_at || a.created_at) || 0;
+        const timeB = Date.parse(b.updated_at || b.created_at) || 0;
+        if (timeB !== timeA) return timeB - timeA;
         return a.product_id.localeCompare(b.product_id);
       });
     }
@@ -278,7 +278,7 @@ export async function getProductById(id: string): Promise<Product | null> {
     if (found) return found;
 
     const res = await fetch(`${API_BASE}/api/products/${id}`, {
-      next: { revalidate: 15 },
+      cache: 'no-store',
     });
 
     if (!res.ok) return null;

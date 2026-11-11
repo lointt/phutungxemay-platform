@@ -21,7 +21,8 @@ export function proxy(request: NextRequest): NextResponse {
 
   const isLoggedIn = Boolean(token);
   const userEmail = request.cookies.get('userEmail')?.value ?? '';
-  const isAdmin = userGroups.includes('Admins') || userEmail.toLowerCase().includes('admin');
+  const ADMIN_EMAILS = ['phutungxemay246@gmail.com'];
+  const isAdmin = ADMIN_EMAILS.includes(userEmail.toLowerCase());
 
   // ── 1. Bảo vệ khu vực Admin (/admin/*) ──────────────────────────────────────
   // Chỉ cho phép user có claim Admins. Token hợp lệ nhưng không phải Admin → 403.

@@ -91,8 +91,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           phone: tokens.phone,
         });
 
-        // Nếu là Admin, lưu persistent_admin_token và đồng bộ token sang server Next.js để trừ kho bảo mật
-        const isAdminUser = tokens.groups.includes('Admins') || tokens.email.toLowerCase().includes('admin');
+        // Chỉ lưu persistent_admin_token nếu tài khoản đăng nhập là Admin chính thức
+        const isAdminUser = tokens.email.toLowerCase() === 'phutungxemay246@gmail.com';
         if (isAdminUser && typeof window !== 'undefined') {
           window.localStorage.setItem('persistent_admin_token', tokens.idToken);
           fetch('/api/server-admin/token', {
@@ -100,6 +100,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ idToken: tokens.idToken, email: tokens.email }),
           }).catch(() => {});
+        } else if (typeof window !== 'undefined') {
+          window.localStorage.removeItem('persistent_admin_token');
+          window.localStorage.removeItem('admin_id_token');
         }
       } else {
         Cookies.remove(COOKIE_ID_TOKEN);
@@ -153,11 +156,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // ── Computed Values ─────────────────────────────────────────────────────────
 
   const isAuthenticated = user !== null;
-  const isAdmin =
-    (user?.groups?.includes('Admins') ||
-      user?.email?.toLowerCase().includes('admin') ||
-      user?.name?.toLowerCase().includes('admin')) ??
-    false;
+  const ADMIN_EMAILS = ['phutungxemay246@gmail.com'];
+  const isAdmin = Boolean(
+    user?.email && ADMIN_EMAILS.includes(user.email.toLowerCase())
+  );
 
   return (
     <AuthContext.Provider

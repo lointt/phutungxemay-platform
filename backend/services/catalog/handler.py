@@ -99,8 +99,7 @@ def is_admin(event):
         # 2. Kiểm tra email quản trị viên được uỷ quyền
         email = str(claims.get('email') or '').strip().lower()
         ADMIN_EMAILS = [
-            'phutungxemay246@gmail.com',
-            'nguyentantailoi03052005@gmail.com'
+            'phutungxemay246@gmail.com'
         ]
         if email in ADMIN_EMAILS:
             return True

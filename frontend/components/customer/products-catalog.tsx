@@ -391,13 +391,19 @@ export function ProductsCatalog({ initialProducts }: ProductsCatalogProps) {
       list.sort((a, b) => b.price - a.price);
     } else if (sortBy === 'newest') {
       list.sort((a, b) => {
-        const timeA = Date.parse(a.created_at) || 0;
-        const timeB = Date.parse(b.created_at) || 0;
+        const timeA = Date.parse(a.updated_at || a.created_at) || 0;
+        const timeB = Date.parse(b.updated_at || b.created_at) || 0;
         if (timeB !== timeA) return timeB - timeA;
         return b.product_id.localeCompare(a.product_id);
       });
     } else {
-      list.sort((a, b) => a.product_id.localeCompare(b.product_id));
+      // Mặc định: Phổ biến nhất & Mới nhất
+      list.sort((a, b) => {
+        const timeA = Date.parse(a.updated_at || a.created_at) || 0;
+        const timeB = Date.parse(b.updated_at || b.created_at) || 0;
+        if (timeB !== timeA) return timeB - timeA;
+        return a.product_id.localeCompare(b.product_id);
+      });
     }
 
     return list;
