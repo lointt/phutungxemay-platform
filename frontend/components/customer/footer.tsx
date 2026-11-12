@@ -45,14 +45,15 @@ export function CustomerFooter() {
             <h3 className="font-semibold text-white mb-4">Danh Mục</h3>
             <ul className="space-y-2 text-sm">
               {[
-                { label: 'Truyền động', href: `/products?category=${encodeURIComponent('Truyền động')}` },
-                { label: 'Động cơ', href: `/products?category=${encodeURIComponent('Động cơ')}` },
-                { label: 'Giảm xóc', href: `/products?category=${encodeURIComponent('Giảm xóc')}` },
+                { label: 'Dầu nhớt & Phụ gia', href: `/products?category=${encodeURIComponent('Dầu nhớt & Phụ gia')}` },
                 { label: 'Hệ thống phanh', href: `/products?category=${encodeURIComponent('Hệ thống phanh')}` },
-                { label: 'Điện - Đèn', href: `/products?category=${encodeURIComponent('Điện - Đèn')}` },
-                { label: 'Nhớt - Lọc', href: `/products?category=${encodeURIComponent('Nhớt - Lọc')}` },
-                { label: 'Lốp - Vỏ xe', href: `/products?category=${encodeURIComponent('Lốp - Vỏ xe')}` },
-                { label: 'Phụ kiện - Pô xe', href: `/products?category=${encodeURIComponent('Phụ kiện - Pô xe')}` },
+                { label: 'Nhông sên dĩa & Bộ nồi', href: `/products?category=${encodeURIComponent('Nhông sên dĩa & Bộ nồi')}` },
+                { label: 'Giảm xóc & Phuộc', href: `/products?category=${encodeURIComponent('Giảm xóc & Phuộc')}` },
+                { label: 'Vỏ lốp & Mâm xe', href: `/products?category=${encodeURIComponent('Vỏ lốp & Mâm xe')}` },
+                { label: 'Động cơ & Hút xả', href: `/products?category=${encodeURIComponent('Động cơ & Hút xả')}` },
+                { label: 'Hệ thống Điện & Chiếu sáng', href: `/products?category=${encodeURIComponent('Hệ thống Điện & Chiếu sáng')}` },
+                { label: 'Dàn áo – Nhựa – Khung sườn', href: `/products?category=${encodeURIComponent('Dàn áo – Nhựa – Khung sườn')}` },
+                { label: 'Phụ kiện & Đồ chơi xe', href: `/products?category=${encodeURIComponent('Phụ kiện & Đồ chơi xe')}` },
               ].map((item) => (
                 <li key={item.href}>
                   <Link href={item.href} className="hover:text-orange-400 transition-colors">

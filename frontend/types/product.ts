@@ -43,14 +43,15 @@ export interface CompatibleVehicle {
 }
 
 export const PRODUCT_CATEGORIES = [
-  'Truyền động',
-  'Động cơ',
-  'Giảm xóc',
+  'Dầu nhớt & Phụ gia',
   'Hệ thống phanh',
-  'Điện - Đèn',
-  'Nhớt - Lọc',
-  'Lốp - Vỏ xe',
-  'Phụ kiện - Pô xe',
+  'Nhông sên dĩa & Bộ nồi',
+  'Giảm xóc & Phuộc',
+  'Vỏ lốp & Mâm xe',
+  'Động cơ & Hút xả',
+  'Hệ thống Điện & Chiếu sáng',
+  'Dàn áo – Nhựa – Khung sườn',
+  'Phụ kiện & Đồ chơi xe',
 ] as const;
 
 export type ProductCategory =

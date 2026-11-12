@@ -85,16 +85,29 @@ export function getImageUrl(imagePath: string): string {
  */
 export function getCategoryLabel(category: string): string {
   const labels: Record<string, string> = {
-    transmission: 'Truyền động',
+    oil: 'Dầu nhớt & Phụ gia',
+    oil_filter: 'Dầu nhớt & Phụ gia',
+    'nhớt - lọc': 'Dầu nhớt & Phụ gia',
     brake: 'Hệ thống phanh',
-    engine: 'Động cơ',
-    electrical: 'Điện - Đèn',
-    suspension: 'Giảm xóc',
-    body: 'Nhựa - Tem - Yên xe',
-    oil_filter: 'Nhớt - Lọc',
+    transmission: 'Nhông sên dĩa & Bộ nồi',
+    'truyền động': 'Nhông sên dĩa & Bộ nồi',
+    suspension: 'Giảm xóc & Phuộc',
+    fork: 'Giảm xóc & Phuộc',
+    'giảm xóc': 'Giảm xóc & Phuộc',
+    tyre: 'Vỏ lốp & Mâm xe',
+    tire: 'Vỏ lốp & Mâm xe',
+    'lốp - vỏ xe': 'Vỏ lốp & Mâm xe',
+    engine: 'Động cơ & Hút xả',
+    'động cơ': 'Động cơ & Hút xả',
+    electrical: 'Hệ thống Điện & Chiếu sáng',
+    'điện - đèn': 'Hệ thống Điện & Chiếu sáng',
+    body: 'Dàn áo – Nhựa – Khung sườn',
+    'nhựa - tem - yên xe': 'Dàn áo – Nhựa – Khung sườn',
+    accessory: 'Phụ kiện & Đồ chơi xe',
+    'phụ kiện - pô xe': 'Phụ kiện & Đồ chơi xe',
     other: 'Khác',
   };
-  return labels[category] ?? category;
+  return labels[category.toLowerCase()] ?? labels[category] ?? category;
 }
 
 /**

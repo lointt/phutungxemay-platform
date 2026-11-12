@@ -13,14 +13,15 @@ import { cn } from '@/lib/utils';
 
 export const HEADER_CATEGORIES = [
   { label: 'Tất cả sản phẩm', value: '' },
-  { label: 'Truyền động', value: 'Truyền động' },
-  { label: 'Động cơ', value: 'Động cơ' },
-  { label: 'Giảm xóc', value: 'Giảm xóc' },
+  { label: 'Dầu nhớt & Phụ gia', value: 'Dầu nhớt & Phụ gia' },
   { label: 'Hệ thống phanh', value: 'Hệ thống phanh' },
-  { label: 'Điện - Đèn', value: 'Điện - Đèn' },
-  { label: 'Nhớt - Lọc', value: 'Nhớt - Lọc' },
-  { label: 'Lốp - Vỏ xe', value: 'Lốp - Vỏ xe' },
-  { label: 'Phụ kiện - Pô xe', value: 'Phụ kiện - Pô xe' },
+  { label: 'Nhông sên dĩa & Bộ nồi', value: 'Nhông sên dĩa & Bộ nồi' },
+  { label: 'Giảm xóc & Phuộc', value: 'Giảm xóc & Phuộc' },
+  { label: 'Vỏ lốp & Mâm xe', value: 'Vỏ lốp & Mâm xe' },
+  { label: 'Động cơ & Hút xả', value: 'Động cơ & Hút xả' },
+  { label: 'Hệ thống Điện & Chiếu sáng', value: 'Hệ thống Điện & Chiếu sáng' },
+  { label: 'Dàn áo – Nhựa – Khung sườn', value: 'Dàn áo – Nhựa – Khung sườn' },
+  { label: 'Phụ kiện & Đồ chơi xe', value: 'Phụ kiện & Đồ chơi xe' },
 ];
 
 export function CustomerHeader() {

@@ -9,14 +9,15 @@ import { Suspense, useCallback, useState } from 'react';
 import { cn } from '@/lib/utils';
 
 const CATEGORIES: { value: string; label: string }[] = [
-  { value: 'Truyền động', label: 'Truyền động' },
-  { value: 'Động cơ', label: 'Động cơ' },
-  { value: 'Giảm xóc', label: 'Giảm xóc' },
+  { value: 'Dầu nhớt & Phụ gia', label: 'Dầu nhớt & Phụ gia' },
   { value: 'Hệ thống phanh', label: 'Hệ thống phanh' },
-  { value: 'Điện - Đèn', label: 'Điện - Đèn' },
-  { value: 'Nhớt - Lọc', label: 'Nhớt - Lọc' },
-  { value: 'Lốp - Vỏ xe', label: 'Lốp - Vỏ xe' },
-  { value: 'Phụ kiện - Pô xe', label: 'Phụ kiện - Pô xe' },
+  { value: 'Nhông sên dĩa & Bộ nồi', label: 'Nhông sên dĩa & Bộ nồi' },
+  { value: 'Giảm xóc & Phuộc', label: 'Giảm xóc & Phuộc' },
+  { value: 'Vỏ lốp & Mâm xe', label: 'Vỏ lốp & Mâm xe' },
+  { value: 'Động cơ & Hút xả', label: 'Động cơ & Hút xả' },
+  { value: 'Hệ thống Điện & Chiếu sáng', label: 'Hệ thống Điện & Chiếu sáng' },
+  { value: 'Dàn áo – Nhựa – Khung sườn', label: 'Dàn áo – Nhựa – Khung sườn' },
+  { value: 'Phụ kiện & Đồ chơi xe', label: 'Phụ kiện & Đồ chơi xe' },
 ];
 
 const PRICE_RANGES = [

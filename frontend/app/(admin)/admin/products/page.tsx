@@ -14,12 +14,15 @@ import { formatCurrencyVND, getCategoryLabel, getImageUrl } from '@/lib/utils';
 import type { Product } from '@/types/product';
 
 const CATEGORIES = [
-  'Truyền động',
-  'Động cơ',
-  'Giảm xóc',
+  'Dầu nhớt & Phụ gia',
   'Hệ thống phanh',
-  'Điện - Đèn',
-  'Nhớt - Lọc',
+  'Nhông sên dĩa & Bộ nồi',
+  'Giảm xóc & Phuộc',
+  'Vỏ lốp & Mâm xe',
+  'Động cơ & Hút xả',
+  'Hệ thống Điện & Chiếu sáng',
+  'Dàn áo – Nhựa – Khung sườn',
+  'Phụ kiện & Đồ chơi xe',
   'Khác',
 ];
 
