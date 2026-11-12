@@ -215,6 +215,7 @@ def lambda_handler(event, context):
                 'image_url': str(body.get('image_url', '')),
                 'image_urls': body.get('image_urls', []),
                 'compatible_models': body.get('compatible_models', []),
+                'compatible_vehicles': [to_dynamo_value(v) for v in body.get('compatible_vehicles', [])],
                 'status': 'ACTIVE',
                 'is_active': True,
                 'created_at': body.get('created_at') or now_iso,

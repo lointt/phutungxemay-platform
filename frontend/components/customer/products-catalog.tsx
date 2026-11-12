@@ -534,7 +534,7 @@ export function ProductsCatalog({ initialProducts }: ProductsCatalogProps) {
 
       <div className="flex flex-col lg:flex-row gap-8">
         {/* ── Sidebar: Bộ lọc sản phẩm ────────────────────────────────────── */}
-        <aside className="lg:w-68 flex-shrink-0">
+        <aside className="lg:w-76 xl:w-80 flex-shrink-0">
           <div className="lg:sticky lg:top-20 bg-white rounded-2xl border border-gray-200/90 p-4 shadow-xs">
             {/* Header Lọc sản phẩm — Bấm mở bảng lọc nâng cao */}
             <div className="flex items-center justify-between gap-2 pb-3.5 border-b border-gray-100">
@@ -621,11 +621,11 @@ export function ProductsCatalog({ initialProducts }: ProductsCatalogProps) {
                           : 'text-gray-700 hover:bg-gray-50',
                       )}
                     >
-                      <span className="flex items-center gap-2.5">
+                      <span className="flex items-center gap-2 min-w-0 pr-1">
                         <CheckBoxIndicator checked={selectedCategories.length === 0} />
-                        <span>Tất cả danh mục</span>
+                        <span className="whitespace-nowrap text-[13px]">Tất cả danh mục</span>
                       </span>
-                      <span className="text-xs text-gray-400 font-medium">{products.length}</span>
+                      <span className="text-xs text-gray-400 font-medium flex-shrink-0">{products.length}</span>
                     </button>
 
                     {CATEGORIES.map((cat) => {
@@ -642,13 +642,13 @@ export function ProductsCatalog({ initialProducts }: ProductsCatalogProps) {
                               : 'text-gray-700 hover:bg-gray-50',
                           )}
                         >
-                          <span className="flex items-center gap-2.5">
+                          <span className="flex items-center gap-2 min-w-0 pr-1">
                             <CheckBoxIndicator checked={isChecked} />
-                            <span>{cat.label}</span>
+                            <span className="whitespace-nowrap text-[13px]">{cat.label}</span>
                           </span>
                           <span
                             className={cn(
-                              'text-xs font-medium',
+                              'text-xs font-medium flex-shrink-0',
                               isChecked ? 'text-orange-600' : 'text-gray-400',
                             )}
                           >
