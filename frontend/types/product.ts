@@ -40,6 +40,7 @@ export interface CompatibleVehicle {
   model: string;   // Ví dụ: "Exciter 150"
   year_from: number;
   year_to: number;
+  all_years?: boolean;
 }
 
 export const PRODUCT_CATEGORIES = [

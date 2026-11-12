@@ -9,6 +9,7 @@ import Link from 'next/link';
 import { getProductById, getProducts } from '@/lib/server-api';
 import { formatCurrencyVND, getCategoryLabel, getImageUrl } from '@/lib/utils';
 import { AddToCartSection } from './add-to-cart-section';
+import { ProductImageGallery } from '@/components/customer/product-image-gallery';
 
 // params là runtime data → block prerendering theo Next.js 16 cacheComponents mode
 export const instant = false;
@@ -78,36 +79,13 @@ export default async function ProductDetailPage({ params }: Props) {
       </nav>
 
       <div className="grid md:grid-cols-2 gap-10 lg:gap-16">
-        {/* ── Thư viện ảnh ─────────────────────────────────────────────────── */}
-        <div className="space-y-3">
-          {/* Main image */}
-          <div className="relative aspect-square bg-gray-100 rounded-2xl overflow-hidden">
-            <Image
-              src={images[0]}
-              alt={product.name}
-              fill
-              unoptimized
-              className="object-cover"
-              priority
-              sizes="(max-width: 768px) 100vw, 50vw"
-            />
-            {product.stock === 0 && (
-              <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                <span className="bg-white text-gray-800 font-semibold px-6 py-3 rounded-full text-lg">Hết hàng</span>
-              </div>
-            )}
-          </div>
-
-          {/* Thumbnail strip */}
-          {images.length > 1 && (
-            <div className="grid grid-cols-5 gap-2">
-              {images.slice(1, 6).map((img, idx) => (
-                <div key={idx} className="relative aspect-square bg-gray-100 rounded-xl overflow-hidden border-2 border-transparent hover:border-orange-400 cursor-pointer transition-colors">
-                  <Image src={img} alt={`${product.name} ${idx + 2}`} fill unoptimized className="object-cover" sizes="80px" />
-                </div>
-              ))}
-            </div>
-          )}
+        {/* ── Thư viện ảnh dạng Slider / Vuốt ngang ─────────────────────────── */}
+        <div>
+          <ProductImageGallery
+            images={images}
+            productName={product.name}
+            isOutOfStock={product.stock === 0}
+          />
         </div>
 
         {/* ── Thông tin sản phẩm ───────────────────────────────────────────── */}
@@ -157,15 +135,25 @@ export default async function ProductDetailPage({ params }: Props) {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {product.compatible_vehicles.map((v, idx) => (
-                      <tr key={idx} className="hover:bg-gray-50 transition-colors">
-                        <td className="px-4 py-2.5 text-gray-700 font-medium">{v.brand}</td>
-                        <td className="px-4 py-2.5 text-gray-700">{v.model}</td>
-                        <td className="px-4 py-2.5 text-gray-500">
-                          {v.year_from === v.year_to ? v.year_from : `${v.year_from} – ${v.year_to}`}
-                        </td>
-                      </tr>
-                    ))}
+                    {product.compatible_vehicles.map((v, idx) => {
+                      const isAllYears =
+                        v.all_years ||
+                        (v.year_from <= 2000 && v.year_to >= 2030) ||
+                        (v.year_from === 0 && v.year_to === 0);
+                      return (
+                        <tr key={idx} className="hover:bg-gray-50 transition-colors">
+                          <td className="px-4 py-2.5 text-gray-700 font-medium">{v.brand}</td>
+                          <td className="px-4 py-2.5 text-gray-700">{v.model}</td>
+                          <td className="px-4 py-2.5 text-gray-500">
+                            {isAllYears
+                              ? 'Tất cả đời xe'
+                              : v.year_from === v.year_to
+                              ? v.year_from
+                              : `${v.year_from} – ${v.year_to}`}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

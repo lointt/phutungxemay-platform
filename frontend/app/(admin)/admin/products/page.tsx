@@ -237,11 +237,7 @@ export default function AdminProductsPage() {
     setManualImageUrl('');
     setUploadError(null);
     setDescription('Phụ tùng chính hãng chất lượng cao, chịu nhiệt và độ bền vượt trội.');
-    setCompatibleVehicles([
-      { id: '1', brand: 'Honda', model: 'Wave Alpha', year_from: 2015, year_to: 2024, all_years: false },
-      { id: '2', brand: 'Yamaha', model: 'Exciter 150', year_from: 2015, year_to: 2020, all_years: false },
-      { id: '3', brand: 'Honda', model: 'Winner X', year_from: 2019, year_to: 2024, all_years: false },
-    ]);
+    setCompatibleVehicles([]);
     setInputBrand('Honda');
     setInputModel('');
     setInputYearFrom(2018);
@@ -320,17 +316,18 @@ export default function AdminProductsPage() {
       model: v.model.trim() || 'Tất cả dòng xe',
       year_from: v.all_years ? 2000 : (Number(v.year_from) || 2015),
       year_to: v.all_years ? 2030 : (Number(v.year_to) || 2026),
+      all_years: v.all_years || (v.year_from <= 2000 && v.year_to >= 2030),
     }));
 
     const modelsPayload: string[] = compatibleVehicles.length > 0
       ? compatibleVehicles.map((v) => {
           if (v.all_years || (v.year_from <= 2000 && v.year_to >= 2030)) {
-            return `${v.brand} ${v.model} (Tất cả đời)`;
+            return `${v.brand} ${v.model} (Tất cả đời xe)`;
           }
           const range = v.year_from === v.year_to ? `${v.year_from}` : `${v.year_from}-${v.year_to}`;
           return `${v.brand} ${v.model} (${range})`;
         })
-      : ['Phổ thông (Mọi dòng xe)'];
+      : ['Phổ thông (Tất cả đời xe)'];
 
     const validImageUrls = imageUrls.filter((u) => u.trim().length > 0);
     const finalImageUrls = validImageUrls.length > 0
@@ -655,8 +652,10 @@ export default function AdminProductsPage() {
                             ? p.compatible_vehicles
                                 .map((v) => {
                                   const yearStr =
-                                    v.year_from <= 2000 && v.year_to >= 2030
-                                      ? 'Mọi đời'
+                                    v.all_years ||
+                                    (v.year_from <= 2000 && v.year_to >= 2030) ||
+                                    (v.year_from === 0 && v.year_to === 0)
+                                      ? 'Tất cả đời xe'
                                       : v.year_from === v.year_to
                                       ? `${v.year_from}`
                                       : `${v.year_from}-${v.year_to}`;
@@ -695,15 +694,22 @@ export default function AdminProductsPage() {
 
       {/* ── Product Modal (Create / Edit) ───────────────────────────────────── */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl max-w-xl w-full p-6 sm:p-8 shadow-2xl space-y-5 animate-in fade-in zoom-in-95 duration-200 my-8">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 overflow-y-auto p-4 sm:p-6 flex justify-center items-start">
+          <div className="bg-white rounded-3xl max-w-2xl w-full p-6 sm:p-8 shadow-2xl space-y-5 animate-in fade-in zoom-in-95 duration-200 my-4 sm:my-8 relative">
             <div className="flex items-center justify-between border-b border-gray-100 pb-4">
-              <h3 className="text-lg font-black text-gray-900">
-                {editingProduct ? 'Chỉnh sửa phụ tùng' : 'Thêm mới phụ tùng vào kho'}
-              </h3>
+              <div>
+                <h3 className="text-lg font-black text-gray-900">
+                  {editingProduct ? 'Chỉnh sửa phụ tùng' : 'Thêm mới phụ tùng vào kho'}
+                </h3>
+                <p className="text-[11px] text-gray-400 mt-0.5">
+                  Điền thông tin phụ tùng, hình ảnh và đời xe tương thích
+                </p>
+              </div>
               <button
+                type="button"
                 onClick={() => setIsModalOpen(false)}
-                className="text-gray-400 hover:text-gray-700 text-lg font-bold p-1 rounded-lg"
+                className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 hover:text-gray-800 font-bold flex items-center justify-center transition-colors cursor-pointer"
+                title="Đóng cửa sổ"
               >
                 ✕
               </button>
@@ -962,14 +968,14 @@ export default function AdminProductsPage() {
 
                 {/* Form nhập thêm xe */}
                 <div className="p-3 bg-gray-50/90 rounded-xl border border-gray-200 space-y-2.5">
-                  <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center">
+                  <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-end">
                     {/* Hãng */}
                     <div className="sm:col-span-3">
-                      <label className="block text-[10px] font-bold text-gray-500 uppercase mb-0.5">Hãng xe</label>
+                      <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Hãng xe</label>
                       <select
                         value={inputBrand}
                         onChange={(e) => setInputBrand(e.target.value)}
-                        className="w-full px-2.5 py-1.5 bg-white border border-gray-200 rounded-lg text-xs font-semibold text-gray-800 focus:outline-none focus:ring-1 focus:ring-orange-400"
+                        className="w-full px-2.5 py-2 bg-white border border-gray-200 rounded-lg text-xs font-semibold text-gray-800 focus:outline-none focus:ring-1 focus:ring-orange-400"
                       >
                         <option value="Honda">Honda</option>
                         <option value="Yamaha">Yamaha</option>
@@ -984,10 +990,10 @@ export default function AdminProductsPage() {
 
                     {/* Model / Dòng xe */}
                     <div className="sm:col-span-4">
-                      <label className="block text-[10px] font-bold text-gray-500 uppercase mb-0.5">Dòng xe / Model</label>
+                      <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Dòng xe / Model</label>
                       <input
                         type="text"
-                        placeholder="Ví dụ: Exciter 150, Winner X, Wave..."
+                        placeholder="Ví dụ: Exciter 150, Winner X..."
                         value={inputModel}
                         onChange={(e) => setInputModel(e.target.value)}
                         onKeyDown={(e) => {
@@ -996,19 +1002,19 @@ export default function AdminProductsPage() {
                             handleAddVehicle();
                           }
                         }}
-                        className="w-full px-2.5 py-1.5 bg-white border border-gray-200 rounded-lg text-xs text-gray-800 focus:outline-none focus:ring-1 focus:ring-orange-400"
+                        className="w-full px-2.5 py-2 bg-white border border-gray-200 rounded-lg text-xs text-gray-800 focus:outline-none focus:ring-1 focus:ring-orange-400"
                       />
                     </div>
 
                     {/* Đời xe / Năm */}
                     <div className="sm:col-span-3">
-                      <label className="block text-[10px] font-bold text-gray-500 uppercase mb-0.5">Đời xe (Năm)</label>
+                      <label className="block text-[10px] font-bold text-gray-500 uppercase mb-1">Đời xe (Năm)</label>
                       {inputAllYears ? (
-                        <div className="px-2.5 py-1.5 bg-gray-100 border border-gray-200 rounded-lg text-xs text-gray-500 font-medium text-center">
+                        <div className="w-full px-2 py-2 bg-gray-100 border border-gray-200 rounded-lg text-xs text-gray-500 font-medium text-center truncate">
                           Tất cả đời xe
                         </div>
                       ) : (
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-1.5">
                           <input
                             type="number"
                             min={1990}
@@ -1016,9 +1022,9 @@ export default function AdminProductsPage() {
                             placeholder="Từ"
                             value={inputYearFrom}
                             onChange={(e) => setInputYearFrom(Number(e.target.value))}
-                            className="w-full px-1.5 py-1.5 bg-white border border-gray-200 rounded-lg text-xs text-center font-mono focus:outline-none focus:ring-1 focus:ring-orange-400"
+                            className="w-16 sm:w-20 px-2 py-2 bg-white border border-gray-200 rounded-lg text-xs text-center font-mono focus:outline-none focus:ring-1 focus:ring-orange-400 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                           />
-                          <span className="text-gray-400 text-xs">-</span>
+                          <span className="text-gray-400 text-xs font-bold">-</span>
                           <input
                             type="number"
                             min={1990}
@@ -1026,59 +1032,35 @@ export default function AdminProductsPage() {
                             placeholder="Đến"
                             value={inputYearTo}
                             onChange={(e) => setInputYearTo(Number(e.target.value))}
-                            className="w-full px-1.5 py-1.5 bg-white border border-gray-200 rounded-lg text-xs text-center font-mono focus:outline-none focus:ring-1 focus:ring-orange-400"
+                            className="w-16 sm:w-20 px-2 py-2 bg-white border border-gray-200 rounded-lg text-xs text-center font-mono focus:outline-none focus:ring-1 focus:ring-orange-400 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                           />
                         </div>
                       )}
                     </div>
 
                     {/* Nút Thêm */}
-                    <div className="sm:col-span-2 flex items-end">
+                    <div className="sm:col-span-2">
                       <button
                         type="button"
                         onClick={handleAddVehicle}
-                        className="w-full py-1.5 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-lg text-xs transition-colors cursor-pointer shadow-2xs mt-3 sm:mt-0"
+                        className="w-full py-2 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-lg text-xs transition-colors cursor-pointer shadow-2xs"
                       >
-                        + Thêm
+                        + Thêm xe
                       </button>
                     </div>
                   </div>
 
-                  {/* Checkbox tất cả đời xe & gợi ý nhanh */}
-                  <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-gray-200/60">
-                    <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer select-none">
+                  {/* Checkbox tất cả đời xe (ĐÃ BỎ CÁC TAG CHỌN NHANH THEO YÊU CẦU CỦA USER) */}
+                  <div className="pt-1.5 border-t border-gray-200/60 flex items-center justify-between">
+                    <label className="flex items-center gap-2 text-xs text-gray-700 font-medium cursor-pointer select-none">
                       <input
                         type="checkbox"
                         checked={inputAllYears}
                         onChange={(e) => setInputAllYears(e.target.checked)}
-                        className="rounded border-gray-300 text-orange-500 focus:ring-orange-400"
+                        className="w-4 h-4 rounded border-gray-300 text-orange-500 focus:ring-orange-400 cursor-pointer"
                       />
                       <span>Áp dụng cho mọi đời xe</span>
                     </label>
-
-                    {/* Gợi ý chọn nhanh model phổ biến */}
-                    <div className="flex items-center gap-1 text-[11px] text-gray-500">
-                      <span className="text-[10px] text-gray-400">Chọn nhanh:</span>
-                      {[
-                        { b: 'Honda', m: 'Wave Alpha' },
-                        { b: 'Yamaha', m: 'Exciter 150' },
-                        { b: 'Honda', m: 'Winner X' },
-                        { b: 'Honda', m: 'SH 125i/150i' },
-                        { b: 'Honda', m: 'Air Blade' },
-                      ].map((quick) => (
-                        <button
-                          key={quick.m}
-                          type="button"
-                          onClick={() => {
-                            setInputBrand(quick.b);
-                            setInputModel(quick.m);
-                          }}
-                          className="px-1.5 py-0.5 bg-white hover:bg-orange-50 hover:text-orange-600 border border-gray-200 rounded text-[10px] font-medium text-gray-600 transition-colors cursor-pointer"
-                        >
-                          {quick.m}
-                        </button>
-                      ))}
-                    </div>
                   </div>
                 </div>
 
@@ -1086,15 +1068,18 @@ export default function AdminProductsPage() {
                 {compatibleVehicles.length > 0 ? (
                   <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto p-1.5 rounded-xl border border-gray-100 bg-white">
                     {compatibleVehicles.map((v) => {
-                      const yearDisplay = v.all_years
-                        ? 'Mọi đời'
-                        : v.year_from === v.year_to
-                        ? `${v.year_from}`
-                        : `${v.year_from}–${v.year_to}`;
+                      const yearDisplay =
+                        v.all_years ||
+                        (v.year_from <= 2000 && v.year_to >= 2030) ||
+                        (v.year_from === 0 && v.year_to === 0)
+                          ? 'Tất cả đời xe'
+                          : v.year_from === v.year_to
+                          ? `${v.year_from}`
+                          : `${v.year_from}–${v.year_to}`;
                       return (
                         <span
                           key={v.id}
-                          className="inline-flex items-center gap-1 px-2.5 py-1 bg-orange-50 text-orange-800 border border-orange-200/80 rounded-lg text-xs font-medium"
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-orange-50 text-orange-800 border border-orange-200/80 rounded-lg text-xs font-medium"
                         >
                           <span className="font-bold text-orange-900">[{v.brand}]</span>
                           <span>{v.model}</span>
