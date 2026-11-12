@@ -132,8 +132,6 @@ function sanitizeBotContent(text: string, isUser: boolean): string {
   if (isUser || !text) return text;
   return text
     .replace(/CR8EIX/g, 'CPR8EAIX-9')
-    .replace(/220\.000/g, '240.000')
-    .replace(/220,000/g, '240,000')
     .replace(/PROD_SPARK_001/g, 'PROD_ELC_010');
 }
 
