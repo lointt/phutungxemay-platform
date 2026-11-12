@@ -118,14 +118,12 @@ export async function POST(req: Request) {
     const sessionId = body.session_id || 'guest';
     const userId = body.user_id || 'khach-vang-lai';
 
-    const ticketId = `HO_${new Date().toISOString().replace(/\D/g, '').slice(0, 14)}_${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
     const nowStr = new Date().toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' });
 
-    const subject = `[LIÊN HỆ LẠI KHÁCH HÀNG] ${name} (SĐT: ${phone}) - #${ticketId}`;
+    const subject = `[LIÊN HỆ LẠI KHÁCH HÀNG] ${name} - SĐT: ${phone}`;
 
     const text = `
 CÓ KHÁCH HÀNG YÊU CẦU NHÂN VIÊN LIÊN HỆ LẠI TRONG 24H:
-Mã phiếu: #${ticketId}
 Họ và tên: ${name}
 Số điện thoại: ${phone}
 Mã User: ${userId}
@@ -141,7 +139,6 @@ Thời gian: ${nowStr}
   <div style="max-width:650px;margin:auto;background:#ffffff;border-radius:12px;border:1px solid #e2e8f0;overflow:hidden;box-shadow:0 4px 6px rgba(0,0,0,0.05);">
     <div style="background:linear-gradient(135deg, #ea580c 0%, #c2410c 100%);padding:24px;text-align:center;color:#ffffff;">
       <h1 style="margin:0;font-size:22px;letter-spacing:0.5px;">📞 YÊU CẦU LIÊN HỆ LẠI KHÁCH HÀNG</h1>
-      <p style="margin:6px 0 0;font-size:14px;opacity:0.95;">Mã phiếu hỗ trợ: #${ticketId}</p>
     </div>
     <div style="padding:24px;">
       <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:16px;margin-bottom:20px;">
@@ -187,11 +184,10 @@ Thời gian: ${nowStr}
       text,
     });
 
-    console.log(`[HANDOVER_API] Đã gửi thành công email #${ticketId} tới ${STAFF_EMAIL}`);
+    console.log(`[HANDOVER_API] Đã gửi thành công email tới ${STAFF_EMAIL}`);
 
     return NextResponse.json({
       ok: true,
-      ticket_id: ticketId,
       message: 'vấn đề của anh/chị đã được gửi đến nhân viên, nhân viên sẽ sớm liên hệ lại trong 24h ạ!',
     });
   } catch (error: unknown) {

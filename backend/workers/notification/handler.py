@@ -239,7 +239,6 @@ def build_handover_requested_template(detail):
         <div style="max-width:650px;margin:auto;background:#ffffff;border-radius:12px;border:1px solid #e2e8f0;overflow:hidden;box-shadow:0 4px 6px rgba(0,0,0,0.05);">
             <div style="background:linear-gradient(135deg, #ea580c 0%, #c2410c 100%);padding:24px;text-align:center;color:#ffffff;">
                 <h1 style="margin:0;font-size:22px;letter-spacing:0.5px;">📞 YÊU CẦU LIÊN HỆ LẠI KHÁCH HÀNG</h1>
-                <p style="margin:6px 0 0;font-size:14px;opacity:0.95;">Mã phiếu hỗ trợ: #{ticket_id}</p>
             </div>
             <div style="padding:24px;">
                 <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:16px;margin-bottom:20px;">
@@ -298,7 +297,7 @@ def process_notification_event(detail_type, detail):
         c_phone = detail.get("phone") or "N/A"
         c_reason = detail.get("reason", "Cần tư vấn hỗ trợ")
         print(f"[NOTIFICATION] Bắt sự kiện 'HumanHandoverRequested' (Ticket #{ticket_id}) -> Gửi cảnh báo tới Staff Email: {recipient_email}")
-        subject = f"[LIÊN HỆ LẠI KHÁCH HÀNG] {c_name} (SĐT: {c_phone}) - {c_reason[:60]}"
+        subject = f"[LIÊN HỆ LẠI KHÁCH HÀNG] {c_name} - SĐT: {c_phone}"
         html = build_handover_requested_template(detail)
         send_email_smtp(recipient_email, subject, html)
         return

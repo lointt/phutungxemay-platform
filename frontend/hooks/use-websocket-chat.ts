@@ -270,7 +270,7 @@ export function useWebSocketChat() {
               embeddedProduct: mappedProducts[0],
               embeddedProducts: mappedProducts.length > 0 ? mappedProducts : undefined,
               sources: data.sources && data.sources.length > 0 ? data.sources : undefined,
-              handoverTicket: data.handover_ticket,
+              handoverTicket: undefined,
               cartUpdated: data.cart_updated,
             };
             setMessages((prev) => [...prev, aiMsg]);

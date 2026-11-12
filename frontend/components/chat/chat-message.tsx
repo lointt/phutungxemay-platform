@@ -93,23 +93,6 @@ export function ChatMessage({ message, onHandoverSubmit }: ChatMessageProps) {
             </div>
           )}
 
-          {/* Ticket chuyển nhân viên CSKH (Human Handover) */}
-          {message.handoverTicket && (
-            <div className="mt-2.5 p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-start gap-2">
-              <span className="text-base">🎫</span>
-              <div>
-                <p className="font-bold text-amber-950">Đã kết nối nhân viên CSKH</p>
-                <p className="text-[11px] text-amber-800 mt-0.5">
-                  Mã hỗ trợ:{' '}
-                  <code className="font-mono font-bold bg-white px-1.5 py-0.5 rounded border border-amber-300">
-                    {message.handoverTicket}
-                  </code>
-                  . Nhân viên kỹ thuật sẽ kiểm tra và phản hồi sớm nhất.
-                </p>
-              </div>
-            </div>
-          )}
-
           {/* Thông báo cập nhật giỏ hàng */}
           {message.cartUpdated && (
             <div className="mt-2 p-2 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-1.5 font-medium">
@@ -140,6 +123,16 @@ export function ChatMessage({ message, onHandoverSubmit }: ChatMessageProps) {
  */
 function sanitizeBotContent(text: string, isUser: boolean): string {
   if (isUser || !text) return text;
+
+  // Loại bỏ hoàn toàn nội dung nhắc đến mã phiếu / Ticket ID theo yêu cầu
+  if (
+    /mã (yêu cầu|phiếu|hỗ trợ|ticket)/i.test(text) ||
+    /ticket id/i.test(text) ||
+    /ho_\d+/i.test(text)
+  ) {
+    return 'Vấn đề của anh/chị đã được gửi đến nhân viên, nhân viên sẽ sớm liên hệ lại trong 24h ạ!';
+  }
+
   return text
     .replace(/CR8EIX/g, 'CPR8EAIX-9')
     .replace(/PROD_SPARK_001/g, 'PROD_ELC_010');

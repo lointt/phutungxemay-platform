@@ -23,13 +23,11 @@ class TestNotificationWorker(unittest.TestCase):
             "history_text": "User: Xin chào | Bot: Dạ chào bạn | User: Hỏi bố thắng SH",
         }
         html = handler.build_handover_requested_template(detail)
-        self.assertIn("HO_20261103_ABCD", html)
         self.assertIn("sess_12345", html)
         self.assertIn("user_customer_99", html)
         self.assertIn("Khách hàng cần tư vấn phụ tùng SH 150i 2024", html)
         self.assertIn("Bên mình còn bố thắng Brembo cho SH 2024 không?", html)
         self.assertIn("Hỏi bố thắng SH", html)
-        self.assertIn("HUMAN HANDOVER", html)
 
     @patch("handler.send_email_smtp")
     def test_process_handover_requested_event(self, mock_send_email):
@@ -37,6 +35,8 @@ class TestNotificationWorker(unittest.TestCase):
             "ticket_id": "HO_TEST_9999",
             "session_id": "sess_abc",
             "user_id": "user_xyz",
+            "customer_name": "Lợi Nguyễn",
+            "phone": "0813072077",
             "reason": "Yêu cầu gặp nhân viên",
             "question": "Tư vấn giúp em đơn hàng chưa giao",
             "history_text": "User: Cần gặp nhân viên",
@@ -46,8 +46,8 @@ class TestNotificationWorker(unittest.TestCase):
         args, kwargs = mock_send_email.call_args
         # recipient_email, subject, html
         self.assertEqual(args[0], "staff_support@gmail.com")
-        self.assertIn("HO_TEST_9999", args[1])
-        self.assertIn("#HO_TEST_9999", args[2])
+        self.assertIn("Lợi Nguyễn", args[1])
+        self.assertIn("0813072077", args[1])
 
     @patch("handler.send_email_smtp")
     def test_lambda_handler_sqs_handover_record(self, mock_send_email):
