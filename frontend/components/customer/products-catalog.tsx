@@ -71,6 +71,68 @@ function matchesCategory(productCat: string, targetCategory: string): boolean {
   );
 }
 
+function matchesModel(item: Product, targetModel: string): boolean {
+  const target = targetModel.toLowerCase().trim();
+  if (!target) return false;
+
+  // 1. Nếu tìm "Phổ thông" hoặc "Mọi dòng xe" hoặc "Đa năng"
+  if (target.includes('phổ thông') || target.includes('mọi dòng') || target.includes('đa năng')) {
+    return (
+      (item.compatible_vehicles &&
+        item.compatible_vehicles.some(
+          (v) =>
+            v.brand.toLowerCase() === 'đa năng' ||
+            v.model.toLowerCase().includes('tất cả') ||
+            v.model.toLowerCase().includes('phổ thông'),
+        )) ||
+      (item.compatible_models &&
+        item.compatible_models.some(
+          (m) =>
+            m.toLowerCase().includes('phổ thông') ||
+            m.toLowerCase().includes('đa năng') ||
+            m.toLowerCase().includes('tất cả'),
+        )) ||
+      false
+    );
+  }
+
+  // 2. Tách từ khóa con nếu có dấu '/'
+  const subTokens = target
+    .split('/')
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+
+  // 3. So khớp trong compatible_vehicles
+  if (item.compatible_vehicles && item.compatible_vehicles.length > 0) {
+    const matched = item.compatible_vehicles.some((v) => {
+      const vm = v.model.toLowerCase().trim();
+      const vb = v.brand.toLowerCase().trim();
+      if (!vm) return false;
+      if (vm.includes(target) || target.includes(vm)) return true;
+      if (`${vb} ${vm}`.includes(target) || target.includes(`${vb} ${vm}`)) return true;
+      return subTokens.some((tok) => vm.includes(tok) || tok.includes(vm));
+    });
+    if (matched) return true;
+  }
+
+  // 4. So khớp trong compatible_models
+  if (item.compatible_models && item.compatible_models.length > 0) {
+    const matched = item.compatible_models.some((m) => {
+      const lm = m.toLowerCase();
+      if (lm.includes(target) || target.includes(lm)) return true;
+      return subTokens.some((tok) => lm.includes(tok));
+    });
+    if (matched) return true;
+  }
+
+  // 5. So khớp trong tên sản phẩm
+  const lowerName = item.name.toLowerCase();
+  if (lowerName.includes(target)) return true;
+  if (subTokens.some((tok) => tok.length >= 3 && lowerName.includes(tok))) return true;
+
+  return false;
+}
+
 function parseCsvParam(raw: string | null): string[] {
   if (!raw) return [];
   return raw
@@ -310,20 +372,72 @@ export function ProductsCatalog({ initialProducts }: ProductsCatalogProps) {
     return counts;
   }, [products]);
 
+  const availableModels = useMemo(() => {
+    const modelSet = new Set<string>();
+
+    for (const p of products) {
+      if (p.compatible_vehicles && p.compatible_vehicles.length > 0) {
+        for (const v of p.compatible_vehicles) {
+          const raw = v.model?.trim();
+          if (!raw) continue;
+          if (
+            v.brand.toLowerCase() === 'đa năng' ||
+            raw.toLowerCase().includes('tất cả') ||
+            raw.toLowerCase().includes('phổ thông')
+          ) {
+            modelSet.add('Phổ thông (Mọi dòng xe)');
+          } else {
+            const clean = raw.replace(/\s*\([^)]*\)/g, '').trim();
+            if (clean) modelSet.add(clean);
+          }
+        }
+      } else if (p.compatible_models && p.compatible_models.length > 0) {
+        for (const m of p.compatible_models) {
+          const clean = m.replace(/\s*\([^)]*\)/g, '').trim();
+          if (!clean) continue;
+          if (
+            clean.toLowerCase().includes('phổ thông') ||
+            clean.toLowerCase().includes('đa năng') ||
+            clean.toLowerCase().includes('tất cả')
+          ) {
+            modelSet.add('Phổ thông (Mọi dòng xe)');
+          } else {
+            modelSet.add(clean);
+          }
+        }
+      }
+    }
+
+    if (modelSet.size === 0) {
+      return POPULAR_MODELS.map((m) => ({
+        label: m.label,
+        value: m.value,
+        count: products.filter((p) => matchesModel(p, m.value)).length,
+      }));
+    }
+
+    return Array.from(modelSet)
+      .map((model) => ({
+        label: model,
+        value: model,
+        count: products.filter((p) => matchesModel(p, model)).length,
+      }))
+      .filter((m) => m.count > 0)
+      .sort((a, b) => {
+        if (a.value.includes('Phổ thông')) return -1;
+        if (b.value.includes('Phổ thông')) return 1;
+        if (b.count !== a.count) return b.count - a.count;
+        return a.label.localeCompare(b.label, 'vi');
+      });
+  }, [products]);
+
   const modelCounts = useMemo(() => {
     const counts: Record<string, number> = {};
-    for (const m of POPULAR_MODELS) {
-      const cm = m.value.toLowerCase();
-      counts[m.value] = products.filter(
-        (item) =>
-          item.compatible_models?.some((mod) => mod.toLowerCase().includes(cm)) ||
-          item.compatible_vehicles.some((v) => v.model.toLowerCase().includes(cm)) ||
-          item.name.toLowerCase().includes(cm) ||
-          item.description.toLowerCase().includes(cm),
-      ).length;
+    for (const m of availableModels) {
+      counts[m.value] = m.count;
     }
     return counts;
-  }, [products]);
+  }, [availableModels]);
 
   const filteredProducts = useMemo(() => {
     let list = [...products];
@@ -363,15 +477,8 @@ export function ProductsCatalog({ initialProducts }: ProductsCatalogProps) {
     }
 
     if (selectedModels.length > 0) {
-      const lowerModels = selectedModels.map((m) => m.toLowerCase());
       list = list.filter((item) =>
-        lowerModels.some(
-          (cm) =>
-            item.compatible_models?.some((m) => m.toLowerCase().includes(cm)) ||
-            item.compatible_vehicles.some((v) => v.model.toLowerCase().includes(cm)) ||
-            item.name.toLowerCase().includes(cm) ||
-            item.description.toLowerCase().includes(cm),
-        ),
+        selectedModels.some((targetModel) => matchesModel(item, targetModel)),
       );
     }
 
@@ -685,28 +792,34 @@ export function ProductsCatalog({ initialProducts }: ProductsCatalogProps) {
 
                 {openVehicleSection && (
                   <div className="space-y-0.5 max-h-52 overflow-y-auto pr-1">
-                    {POPULAR_MODELS.map((m) => {
-                      const isChecked = selectedModels.includes(m.value);
-                      return (
-                        <button
-                          key={m.value}
-                          type="button"
-                          onClick={() => handleToggleModel(m.value)}
-                          className={cn(
-                            'group w-full flex items-center justify-between px-2.5 py-1.5 text-sm rounded-xl transition-all cursor-pointer',
-                            isChecked
-                              ? 'bg-orange-50/80 text-orange-600 font-semibold'
-                              : 'text-gray-700 hover:bg-gray-50',
-                          )}
-                        >
-                          <span className="flex items-center gap-2.5 truncate">
-                            <CheckBoxIndicator checked={isChecked} />
-                            <span className="truncate">{m.label}</span>
-                          </span>
-                          <span className="text-xs text-gray-400">{modelCounts[m.value] ?? 0}</span>
-                        </button>
-                      );
-                    })}
+                    {availableModels.length === 0 ? (
+                      <p className="text-xs text-gray-400 italic py-1 px-2.5">
+                        Chưa có dòng xe tương thích
+                      </p>
+                    ) : (
+                      availableModels.map((m) => {
+                        const isChecked = selectedModels.includes(m.value);
+                        return (
+                          <button
+                            key={m.value}
+                            type="button"
+                            onClick={() => handleToggleModel(m.value)}
+                            className={cn(
+                              'group w-full flex items-center justify-between px-2.5 py-1.5 text-sm rounded-xl transition-all cursor-pointer',
+                              isChecked
+                                ? 'bg-orange-50/80 text-orange-600 font-semibold'
+                                : 'text-gray-700 hover:bg-gray-50',
+                            )}
+                          >
+                            <span className="flex items-center gap-2 min-w-0 pr-1 truncate">
+                              <CheckBoxIndicator checked={isChecked} />
+                              <span className="truncate text-xs sm:text-[13px]">{m.label}</span>
+                            </span>
+                            <span className="text-xs text-gray-400 flex-shrink-0">{m.count}</span>
+                          </button>
+                        );
+                      })
+                    )}
                   </div>
                 )}
               </div>
@@ -951,7 +1064,7 @@ export function ProductsCatalog({ initialProducts }: ProductsCatalogProps) {
                   key={model}
                   className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-orange-50 text-orange-700 border border-orange-200/70"
                 >
-                  Xe {model}
+                  {model.startsWith('Xe') || model.startsWith('Phổ') ? model : `Xe ${model}`}
                   <button
                     type="button"
                     onClick={() => handleToggleModel(model)}
@@ -1172,32 +1285,38 @@ export function ProductsCatalog({ initialProducts }: ProductsCatalogProps) {
                     </button>
                   )}
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-                  {POPULAR_MODELS.map((m) => {
-                    const isChecked = selectedModels.includes(m.value);
-                    return (
-                      <button
-                        key={m.value}
-                        type="button"
-                        onClick={() => handleToggleModel(m.value)}
-                        className={cn(
-                          'group flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-xl border text-left transition-all cursor-pointer',
-                          isChecked
-                            ? 'bg-orange-50/90 border-orange-500 text-orange-700 font-semibold shadow-2xs'
-                            : 'bg-white border-gray-200 text-gray-700 hover:border-orange-300 hover:bg-orange-50/30',
-                        )}
-                      >
-                        <span className="flex items-center gap-2.5 min-w-0">
-                          <CheckBoxIndicator checked={isChecked} />
-                          <span className="text-xs sm:text-sm truncate">{m.label}</span>
-                        </span>
-                        <span className="text-[11px] text-gray-400 flex-shrink-0">
-                          {modelCounts[m.value] ?? 0}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
+                {availableModels.length === 0 ? (
+                  <p className="text-xs text-gray-400 italic py-2">
+                    Chưa có dữ liệu dòng xe tương thích từ các sản phẩm trong kho.
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 max-h-64 overflow-y-auto pr-1">
+                    {availableModels.map((m) => {
+                      const isChecked = selectedModels.includes(m.value);
+                      return (
+                        <button
+                          key={m.value}
+                          type="button"
+                          onClick={() => handleToggleModel(m.value)}
+                          className={cn(
+                            'group flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-xl border text-left transition-all cursor-pointer',
+                            isChecked
+                              ? 'bg-orange-50/90 border-orange-500 text-orange-700 font-semibold shadow-2xs'
+                              : 'bg-white border-gray-200 text-gray-700 hover:border-orange-300 hover:bg-orange-50/30',
+                          )}
+                        >
+                          <span className="flex items-center gap-2.5 min-w-0">
+                            <CheckBoxIndicator checked={isChecked} />
+                            <span className="text-xs sm:text-sm truncate">{m.label}</span>
+                          </span>
+                          <span className="text-[11px] text-gray-400 flex-shrink-0">
+                            {m.count}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
               {/* 3. Thương hiệu */}
