@@ -351,25 +351,21 @@ export function useWebSocketChat() {
         prev.map((m) => (m.isHandoverForm ? { ...m, handoverSubmitted: true } : m)),
       );
 
-      // 2. Gửi payload qua WebSocket tới Backend
-      const payload: WebSocketPayload = {
-        action: 'requestHandover',
-        question: `Khách hàng yêu cầu nhân viên hỗ trợ: Họ tên: ${info.name}, SĐT: ${info.phone}, Lý do: ${info.reason}`,
-        message: `Khách hàng yêu cầu nhân viên hỗ trợ: Họ tên: ${info.name}, SĐT: ${info.phone}, Lý do: ${info.reason}`,
-        session_id: getSessionId(),
-        user_id: user?.userId || undefined,
-        customer_name: info.name,
-        phone: info.phone,
-        reason: info.reason,
-        handover_info: info,
-      };
-
-      if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
-        try {
-          socketRef.current.send(JSON.stringify(payload));
-        } catch (e) {
-          console.error('Lỗi gửi requestHandover qua WS:', e);
-        }
+      // 2. Gửi trực tiếp tới Next.js API /api/handover (hoạt động độc lập 100%, không phụ thuộc Gemini AI)
+      try {
+        await fetch('/api/handover', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: info.name,
+            phone: info.phone,
+            reason: info.reason,
+            session_id: getSessionId(),
+            user_id: user?.userId || undefined,
+          }),
+        });
+      } catch (err) {
+        console.error('Lỗi gửi yêu cầu handover qua API:', err);
       }
 
       // 3. Phản hồi xác nhận đúng yêu cầu
