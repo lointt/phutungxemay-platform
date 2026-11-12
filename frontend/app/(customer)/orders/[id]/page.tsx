@@ -327,20 +327,28 @@ function OrderTrackingContent({ params }: PageProps) {
         <div className="pt-4 border-t border-gray-100 space-y-2 text-xs">
           <div className="flex justify-between text-gray-600">
             <span>Tạm tính tiền hàng:</span>
-            <span className="font-medium text-gray-900">{formatCurrencyVND(order.subtotal)}</span>
+            <span className="font-medium text-gray-900">
+              {formatCurrencyVND(
+                order.subtotal && order.subtotal > 0
+                  ? order.subtotal
+                  : order.items.reduce((s, it) => s + it.price * it.quantity, 0) || order.total_amount
+              )}
+            </span>
           </div>
           <div className="flex justify-between text-gray-600">
             <span>Phí vận chuyển:</span>
             <span className="font-medium text-gray-900">
-              {order.shipping_fee === 0 ? 'Miễn phí' : formatCurrencyVND(order.shipping_fee)}
+              {order.shipping_fee === 0 ? 'Miễn phí' : formatCurrencyVND(order.shipping_fee ?? 30000)}
             </span>
           </div>
           <div className="pt-2 border-t border-gray-200 flex justify-between items-baseline text-sm font-bold">
             <span className="text-gray-900">Tổng thanh toán:</span>
             <span className="text-orange-600 font-extrabold text-base">
-              {order.payment_method === 'VNPAY' || (order as unknown as { payment?: { method?: string } }).payment?.method === 'VNPAY' || order.payment_status === 'PAID'
-                ? '0 đ'
-                : formatCurrencyVND(order.final_amount ?? order.total_amount)}
+              {formatCurrencyVND(
+                order.final_amount && order.final_amount > 0
+                  ? order.final_amount
+                  : (order.subtotal && order.subtotal > 0 ? order.subtotal : order.total_amount) + (order.shipping_fee ?? 0)
+              )}
             </span>
           </div>
         </div>

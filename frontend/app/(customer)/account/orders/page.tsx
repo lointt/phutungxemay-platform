@@ -368,9 +368,11 @@ export default function CustomerOrdersPage() {
                   <div className="text-right">
                     <span className="text-xs text-gray-500">Tổng thanh toán: </span>
                     <span className="text-base font-extrabold text-orange-600">
-                      {(order.payment_method === 'VNPAY' || (order as unknown as { payment?: { method?: string } }).payment?.method === 'VNPAY' || order.payment_status === 'PAID')
-                        ? '0 đ'
-                        : formatCurrencyVND(order.final_amount ?? order.total_amount)}
+                      {formatCurrencyVND(
+                        order.final_amount && order.final_amount > 0
+                          ? order.final_amount
+                          : (order.subtotal && order.subtotal > 0 ? order.subtotal : order.total_amount) + (order.shipping_fee ?? 0)
+                      )}
                     </span>
                   </div>
 

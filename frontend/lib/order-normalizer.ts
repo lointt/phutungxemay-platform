@@ -34,6 +34,31 @@ export function normalizeDynamoOrder(raw: Record<string, unknown>): Order {
     province: String(rawAddr.province ?? rawAddr.Province ?? 'TP. Hồ Chí Minh'),
   };
 
+  const calculatedItemsTotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+
+  const rawSubtotal = raw.subtotal ?? raw.Subtotal;
+  const rawTotal = raw.total_amount ?? raw.TotalAmount;
+  const rawFinal = raw.final_amount ?? raw.FinalAmount;
+  const rawShipping = raw.shipping_fee ?? raw.ShippingFee;
+
+  const shippingFee = Number(rawShipping !== undefined ? rawShipping : 30000);
+  
+  // Tạm tính (tiền hàng): ưu tiên subtotal, nếu không có thì lấy total_amount từ backend (trong DynamoDB total_amount là tiền hàng), hoặc tính từ items
+  const subtotal = Number(
+    rawSubtotal !== undefined && Number(rawSubtotal) > 0
+      ? rawSubtotal
+      : rawTotal !== undefined && Number(rawTotal) > 0
+      ? rawTotal
+      : calculatedItemsTotal
+  );
+
+  // Tổng thanh toán: ưu tiên final_amount, nếu không có thì bằng subtotal + shippingFee
+  const finalAmount = Number(
+    rawFinal !== undefined && Number(rawFinal) > 0
+      ? rawFinal
+      : subtotal + shippingFee
+  );
+
   return {
     order_id: orderId,
     user_id: userId,
@@ -42,9 +67,10 @@ export function normalizeDynamoOrder(raw: Record<string, unknown>): Order {
     payment_method: (raw.payment_method ?? raw.PaymentMethod ?? 'COD') as PaymentMethod,
     payment_status: (raw.payment_status ?? raw.PaymentStatus ?? 'PENDING') as PaymentStatus,
     order_status: (raw.order_status ?? raw.OrderStatus ?? 'PLACED') as OrderStatus,
-    subtotal: Number(raw.subtotal ?? raw.Subtotal ?? 0),
-    shipping_fee: Number(raw.shipping_fee ?? raw.ShippingFee ?? 0),
-    total_amount: Number(raw.total_amount ?? raw.TotalAmount ?? 0),
+    subtotal: subtotal,
+    shipping_fee: shippingFee,
+    total_amount: subtotal,
+    final_amount: finalAmount,
     tracking_number: raw.tracking_number ? String(raw.tracking_number) : undefined,
     shipping_partner: raw.shipping_partner
       ? String(raw.shipping_partner)

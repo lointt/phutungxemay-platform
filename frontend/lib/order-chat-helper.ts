@@ -51,6 +51,11 @@ function formatOrderDetailsMarkdown(order: Order): string {
       ? 'Đang liên kết GHN tạo mã...'
       : 'Đang cập nhật';
 
+  const calculatedItemsTotal = order.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const subtotal = order.subtotal > 0 ? order.subtotal : (calculatedItemsTotal > 0 ? calculatedItemsTotal : order.total_amount);
+  const shippingFee = order.shipping_fee !== undefined ? order.shipping_fee : 30000;
+  const finalTotal = order.final_amount && order.final_amount > 0 ? order.final_amount : subtotal + shippingFee;
+
   return `### Thông tin đơn hàng #${order.order_id}
 
 - **Trạng thái:** ${getStatusBadge(order.order_status)}
@@ -67,9 +72,9 @@ function formatOrderDetailsMarkdown(order: Order): string {
 ### Danh sách phụ tùng (${order.items.length} sản phẩm)
 ${itemsList}
 
-- **Tạm tính:** ${formatCurrencyVND(order.subtotal)}
-- **Phí vận chuyển:** ${order.shipping_fee === 0 ? 'Miễn phí' : formatCurrencyVND(order.shipping_fee)}
-- **Tổng thanh toán:** **${formatCurrencyVND(order.total_amount)}**`;
+- **Tạm tính:** ${formatCurrencyVND(subtotal)}
+- **Phí vận chuyển:** ${shippingFee === 0 ? 'Miễn phí' : formatCurrencyVND(shippingFee)}
+- **Tổng thanh toán:** **${formatCurrencyVND(finalTotal)}**`;
 }
 
 /**
