@@ -233,10 +233,17 @@ export function useWebSocketChat() {
       };
 
       ws.onmessage = (event) => {
-        setIsThinking(false);
         try {
           const data = JSON.parse(event.data) as WebSocketResponse;
-          const text = data.answer || data.response;
+          const text = (data.answer || data.response || '').trim();
+
+          // Bỏ qua gói tin rỗng hoặc gói tin cảnh báo thiếu câu hỏi do ping/heartbeat
+          if (!text || text.toLowerCase() === 'thieu cau hoi' || text.toLowerCase() === 'pong') {
+            return;
+          }
+
+          setIsThinking(false);
+
           if (text) {
             // Map products array từ Lambda RAG v2
             const mappedProducts: ProductSummary[] = [];
