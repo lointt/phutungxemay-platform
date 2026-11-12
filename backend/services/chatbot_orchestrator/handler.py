@@ -104,9 +104,8 @@ Quy tắc giỏ hàng:
 Quy tắc chuyển nhân viên:
 - Gọi request_human_agent khi khách muốn gặp nhân viên hoặc người thật, khiếu nại, tỏ ra bực bức,
   hoặc vấn đề mình không thể giải quyết bằng dữ liệu hiện có (ví dụ lỗi đơn hàng, yêu cầu bảo hành).
-- Không gọi chỉ vì câu hỏi bình thường mà mình trả lời được.
-- Sau khi gọi, báo cho khách đã chuyển yêu cầu và nêu mã yêu cầu (ticket_id) lấy từ kết quả công cụ.
-  Nếu kết quả cho biết đã chuyển trước đó thì nói nhân viên đã nhận yêu cầu và sẽ phản hồi sớm.
+- Truyền lý do (reason), họ tên (customer_name) và số điện thoại (phone) nếu khách đã cung cấp.
+- Sau khi gọi, luôn trả lời khách: "Vấn đề của anh/chị đã được gửi đến nhân viên, nhân viên sẽ sớm liên hệ lại trong 24h ạ!"
 """
 
 _model_down = {}      # Ngắt mạch Gemini: tên model -> thời điểm (epoch) được thử lại. Lưu theo từng instance Lambda.
@@ -305,7 +304,7 @@ def claim_handover(session_id):
         raise
 
 
-def notify_handover(session_id, user_id, question, reason):
+def notify_handover(session_id, user_id, question, reason, customer_name=None, phone=None):
     """Phát sự kiện HumanHandoverRequested. Trả về ticket_id, hoặc None nếu đã gửi gần đây."""
     if not claim_handover(session_id):
         return None
@@ -315,6 +314,8 @@ def notify_handover(session_id, user_id, question, reason):
         "ticket_id": ticket_id,
         "session_id": session_id,
         "user_id": user_id or "khach-chua-dang-nhap",
+        "customer_name": customer_name or "",
+        "phone": phone or "",
         "reason": reason,
         "question": question,
         "history_text": history_text,
@@ -325,7 +326,7 @@ def notify_handover(session_id, user_id, question, reason):
         "Detail": json.dumps(detail, ensure_ascii=False),
         "EventBusName": EVENT_BUS,
     }])
-    print("Handover:", ticket_id, reason)
+    print("Handover:", ticket_id, reason, customer_name, phone)
     return ticket_id
 
 
@@ -597,22 +598,24 @@ def make_cart_tools(user_id, state, context_text="", question_text="", last_bot_
 def make_handover_tools(session_id, user_id, question, state):
     """Công cụ chuyển cho nhân viên. session_id và user_id do code cung cấp."""
 
-    def request_human_agent(reason: str) -> dict:
+    def request_human_agent(reason: str, customer_name: str = "", phone: str = "") -> dict:
         """Chuyển cuộc trò chuyện cho nhân viên CSKH thật. Gọi khi khách muốn gặp người thật,
-        khiếu nại, tỏ ra bực bức, hoặc vấn đề không thể giải quyết bằng dữ liệu hiện có.
+        khiếu nại, tỏ ra bực bức, hoặc cung cấp thông tin liên hệ (Tên, SĐT, lý do).
 
         Args:
             reason: Lý do ngắn gọn cần nhân viên hỗ trợ (tiếng Việt).
+            customer_name: Tên của khách hàng (nếu khách cung cấp).
+            phone: Số điện thoại của khách hàng (nếu khách cung cấp).
         """
         try:
-            ticket = notify_handover(session_id, user_id, question, reason[:300])
+            ticket = notify_handover(session_id, user_id, question, reason[:300], customer_name, phone)
         except ClientError as exc:
             print("Loi chuyen nhan vien:", exc)
             return {"ok": False, "error": "Không gửi được yêu cầu, khách nên gọi hotline CSKH."}
         if ticket is None:
             return {"ok": True, "already_requested": True}
         state["handover_ticket"] = ticket
-        return {"ok": True, "ticket_id": ticket}
+        return {"ok": True, "ticket_id": ticket, "message": "Vấn đề của anh/chị đã được gửi đến nhân viên, nhân viên sẽ sớm liên hệ lại trong 24h ạ!"}
 
     return [request_human_agent]
 
@@ -694,8 +697,7 @@ def answer_with_gemini(question, kb_hits, products, garage, past, user_id=None, 
 
     # Công cụ đã chạy nhưng không soạn được câu trả lời: báo kết quả thật cho khách
     if state.get("handover_ticket"):
-        return (f"Mình đã chuyển yêu cầu của bạn cho nhân viên (mã yêu cầu {state['handover_ticket']}). "
-                "Nhân viên sẽ phản hồi sớm.")
+        return "Vấn đề của anh/chị đã được gửi đến nhân viên, nhân viên sẽ sớm liên hệ lại trong 24h ạ!"
     if state.get("cart_updated"):
         return ("Mình đã thêm sản phẩm vào giỏ hàng của bạn nhưng hệ thống đang bận nên chưa soạn được "
                 "chi tiết. Bạn vui lòng kiểm tra lại giỏ hàng nhé.")
@@ -759,6 +761,26 @@ def _handle(event, context):
             ConnectionId=connection_id,
             Data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
         )
+
+    # 0. Fast-path: Khách gửi form yêu cầu liên hệ nhân viên (Tên + SĐT + Lý do)
+    if body.get("action") == "requestHandover" or body.get("handover_info"):
+        h_info = body.get("handover_info", {})
+        c_name = h_info.get("name") or h_info.get("customer_name") or body.get("customer_name") or ""
+        c_phone = h_info.get("phone") or body.get("phone") or ""
+        c_reason = h_info.get("reason") or body.get("reason") or question or "Yêu cầu liên hệ tư vấn"
+        ticket = notify_handover(session_id, user_id, question or c_reason, c_reason, c_name, c_phone)
+        answer = "Vấn đề của anh/chị đã được gửi đến nhân viên, nhân viên sẽ sớm liên hệ lại trong 24h ạ!"
+        past = load_history(session_id)
+        past.extend([f"Khách yêu cầu liên hệ nhân viên: {c_name} ({c_phone}) - {c_reason}", f"Bot: {answer}"])
+        save_history(session_id, past)
+        send({
+            "answer": answer,
+            "sources": [],
+            "products": [],
+            "handover_success": True,
+            "handover_ticket": ticket,
+        })
+        return {"statusCode": 200, "body": "ok"}
 
     if not question:
         send({"answer": "Thieu cau hoi"})

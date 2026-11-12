@@ -10,6 +10,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useWebSocketChat } from '@/hooks/use-websocket-chat';
 import { cn } from '@/lib/utils';
 import { ChatMessage } from './chat-message';
+import { QuickPrompts } from './quick-prompts';
 
 interface ChatWindowProps {
   onClose?: () => void;
@@ -18,8 +19,15 @@ interface ChatWindowProps {
 }
 
 export function ChatWindow({ onClose, isStandalone = false, initialPrompt }: ChatWindowProps) {
-  const { connectionStatus, messages, isThinking, sendMessage, clearChat, reconnect } =
-    useWebSocketChat();
+  const {
+    connectionStatus,
+    messages,
+    isThinking,
+    sendMessage,
+    sendHandoverRequest,
+    clearChat,
+    reconnect,
+  } = useWebSocketChat();
 
   const [inputVal, setInputVal] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -156,7 +164,11 @@ export function ChatWindow({ onClose, isStandalone = false, initialPrompt }: Cha
       {/* ── Messages List ───────────────────────────────────────────────────── */}
       <div className="flex-1 overflow-y-auto overflow-x-hidden px-3.5 sm:px-4 py-3 space-y-1">
         {messages.map((msg) => (
-          <ChatMessage key={msg.id} message={msg} />
+          <ChatMessage
+            key={msg.id}
+            message={msg}
+            onHandoverSubmit={sendHandoverRequest}
+          />
         ))}
 
         {/* AI Typing Indicator */}
@@ -183,7 +195,10 @@ export function ChatWindow({ onClose, isStandalone = false, initialPrompt }: Cha
         <div ref={messagesEndRef} />
       </div>
 
-
+      {/* ── Quick Prompts ───────────────────────────────────────────────────── */}
+      <div className="bg-white border-t border-slate-100 px-3 py-1.5 flex-shrink-0">
+        <QuickPrompts onSelectPrompt={handleSelectPrompt} disabled={isThinking} />
+      </div>
 
       {/* ── Input Box Form ──────────────────────────────────────────────────── */}
       <form

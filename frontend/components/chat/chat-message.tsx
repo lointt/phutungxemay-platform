@@ -8,12 +8,14 @@
 import { cn } from '@/lib/utils';
 import type { ChatMessage as ChatMessageType } from '@/types/chat';
 import { ChatProductEmbed } from './chat-product-embed';
+import { ChatHandoverForm } from './chat-handover-form';
 
 interface ChatMessageProps {
   message: ChatMessageType;
+  onHandoverSubmit?: (data: { name: string; phone: string; reason: string }) => void;
 }
 
-export function ChatMessage({ message }: ChatMessageProps) {
+export function ChatMessage({ message, onHandoverSubmit }: ChatMessageProps) {
   const isUser = message.role === 'user';
 
   return (
@@ -56,6 +58,14 @@ export function ChatMessage({ message }: ChatMessageProps) {
           <div className="space-y-1.5 whitespace-pre-wrap break-words font-sans">
             {renderMarkdownContent(sanitizeBotContent(message.content, isUser), isUser)}
           </div>
+
+          {/* Form thu thập liên hệ nhân viên */}
+          {message.isHandoverForm && onHandoverSubmit && (
+            <ChatHandoverForm
+              onSubmit={onHandoverSubmit}
+              disabled={message.handoverSubmitted}
+            />
+          )}
 
           {/* Embedded Recommended Product(s) from RAG */}
           {message.embeddedProducts && message.embeddedProducts.length > 0 ? (

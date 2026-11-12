@@ -136,7 +136,7 @@ jobs:
             --function-name NotificationWorker-${{ vars.AWS_ENVIRONMENT_TITLE || secrets.AWS_ENVIRONMENT_TITLE || 'Replica' }}
           aws lambda update-function-configuration \
             --function-name NotificationWorker-${{ vars.AWS_ENVIRONMENT_TITLE || secrets.AWS_ENVIRONMENT_TITLE || 'Replica' }} \
-            --environment "Variables={SMTP_SERVER=${{ vars.SMTP_SERVER || 'smtp.gmail.com' }},SMTP_PORT=${{ vars.SMTP_PORT || '465' }},SMTP_USER=${{ vars.SMTP_USER || secrets.SMTP_USER }},SMTP_PASSWORD=${{ secrets.SMTP_PASSWORD }}}"
+            --environment "Variables={SMTP_SERVER=${{ vars.SMTP_SERVER || 'smtp.gmail.com' }},SMTP_PORT=${{ vars.SMTP_PORT || '465' }},SMTP_USER=${{ vars.SMTP_USER || secrets.SMTP_USER }},SMTP_PASSWORD=${{ secrets.SMTP_PASSWORD }},STAFF_EMAIL=lointt1199@gmail.com}"
           cd ../../..
 
       - name: 📦 Build google-genai dependency bundle for Chatbot Lambdas

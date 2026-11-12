@@ -19,6 +19,8 @@ export interface ChatMessage {
   handoverTicket?: string | null;      // Mã ticket chuyển nhân viên tư vấn
   cartUpdated?: boolean;               // Cờ giỏ hàng được cập nhật tự động
   isStreaming?: boolean;               // Đang nhận stream từ AI
+  isHandoverForm?: boolean;            // Hiển thị form thu thập thông tin liên hệ nhân viên
+  handoverSubmitted?: boolean;         // Đã nộp form thành công
 }
 
 /** Thông tin sản phẩm trả về từ Lambda RAG */
@@ -33,11 +35,19 @@ export interface ChatbotProductItem {
 
 /** Payload gửi lên WebSocket API Gateway */
 export interface WebSocketPayload {
-  action: 'sendMessage';
-  question: string;                    // Câu hỏi gửi vào orchestrator v2
+  action: 'sendMessage' | 'requestHandover';
+  question?: string;                    // Câu hỏi gửi vào orchestrator v2
   session_id: string;                  // UUID phiên chat
   user_id?: string;                    // Cognito Sub hoặc Guest ID
   message?: string;                    // Tương thích ngược
+  customer_name?: string;
+  phone?: string;
+  reason?: string;
+  handover_info?: {
+    name: string;
+    phone: string;
+    reason: string;
+  };
 }
 
 /** Payload nhận về từ WebSocket API Gateway (Lambda RAG response) */

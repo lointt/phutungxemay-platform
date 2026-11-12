@@ -336,6 +336,45 @@ export function useWebSocketChat() {
     }
   }, [user?.userId, connectWebSocket]);
 
+  // Gửi yêu cầu chuyển tiếp nhân viên kèm thông tin khách cung cấp
+  const sendHandoverRequest = useCallback(
+    async (info: { name: string; phone: string; reason: string }) => {
+      // 1. Cập nhật trạng thái form đã gửi trong hội thoại
+      setMessages((prev) =>
+        prev.map((m) => (m.isHandoverForm ? { ...m, handoverSubmitted: true } : m)),
+      );
+
+      // 2. Gửi payload qua WebSocket tới Backend
+      const payload: WebSocketPayload = {
+        action: 'requestHandover',
+        session_id: getSessionId(),
+        user_id: user?.userId || undefined,
+        customer_name: info.name,
+        phone: info.phone,
+        reason: info.reason,
+        handover_info: info,
+      };
+
+      if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+        try {
+          socketRef.current.send(JSON.stringify(payload));
+        } catch (e) {
+          console.error('Lỗi gửi requestHandover qua WS:', e);
+        }
+      }
+
+      // 3. Phản hồi xác nhận đúng yêu cầu
+      const confirmMsg: ChatMessage = {
+        id: `ai-handover-confirm-${Date.now()}`,
+        role: 'model',
+        content: 'vấn đề của anh/chị đã được gửi đến nhân viên, nhân viên sẽ sớm liên hệ lại trong 24h ạ!',
+        timestamp: Date.now(),
+      };
+      setMessages((prev) => [...prev, confirmMsg]);
+    },
+    [getSessionId, user?.userId],
+  );
+
   // Gửi tin nhắn
   const sendMessage = useCallback(
     async (text: string) => {
@@ -350,6 +389,28 @@ export function useWebSocketChat() {
       };
 
       setMessages((prev) => [...prev, userMsg]);
+
+      // Kiểm tra ý định liên hệ nhân viên
+      const lower = trimmed.toLowerCase();
+      const isHandoverIntent =
+        lower === 'liên hệ nhân viên' ||
+        lower === 'gặp nhân viên' ||
+        lower.includes('liên hệ nhân viên') ||
+        lower.includes('gặp nhân viên');
+
+      if (isHandoverIntent) {
+        setIsThinking(false);
+        const formMsg: ChatMessage = {
+          id: `ai-handover-form-${Date.now()}`,
+          role: 'model',
+          content: 'Dạ, để nhân viên hỗ trợ liên hệ lại với anh/chị nhanh nhất, anh/chị vui lòng để lại thông tin bên dưới nhé:',
+          isHandoverForm: true,
+          timestamp: Date.now(),
+        };
+        setMessages((prev) => [...prev, formMsg]);
+        return;
+      }
+
       setIsThinking(true);
 
       // 1. Kiểm tra ưu tiên: Tra cứu thông tin/tiến độ đơn hàng theo mã đơn hoặc yêu cầu
@@ -421,7 +482,7 @@ export function useWebSocketChat() {
 
       return () => clearTimeout(fallbackTimer);
     },
-    [getSessionId],
+    [getSessionId, user?.userId],
   );
 
   const clearChat = useCallback(() => {
@@ -445,6 +506,7 @@ export function useWebSocketChat() {
     messages,
     isThinking,
     sendMessage,
+    sendHandoverRequest,
     clearChat,
     reconnect: connectWebSocket,
   };

@@ -799,6 +799,7 @@ resource "aws_lambda_function" "notification_worker" {
       SMTP_SERVER         = "smtp.gmail.com"
       SMTP_PORT           = "465"
       SMTP_PASSWORD_PARAM = aws_ssm_parameter.smtp_password.name
+      STAFF_EMAIL         = "lointt1199@gmail.com"
     }
   }
 
