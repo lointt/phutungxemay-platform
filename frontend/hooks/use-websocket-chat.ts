@@ -347,6 +347,8 @@ export function useWebSocketChat() {
       // 2. Gửi payload qua WebSocket tới Backend
       const payload: WebSocketPayload = {
         action: 'requestHandover',
+        question: `Khách hàng yêu cầu nhân viên hỗ trợ: Họ tên: ${info.name}, SĐT: ${info.phone}, Lý do: ${info.reason}`,
+        message: `Khách hàng yêu cầu nhân viên hỗ trợ: Họ tên: ${info.name}, SĐT: ${info.phone}, Lý do: ${info.reason}`,
         session_id: getSessionId(),
         user_id: user?.userId || undefined,
         customer_name: info.name,
