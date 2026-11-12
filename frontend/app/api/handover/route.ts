@@ -23,7 +23,7 @@ function sendSmtpEmail({
   text: string;
 }): Promise<boolean> {
   return new Promise((resolve, reject) => {
-    const socket = tls.connect(465, 'smtp.gmail.com', () => {
+    const socket = tls.connect({ host: 'smtp.gmail.com', port: 465 }, () => {
       // Connected
     });
 
