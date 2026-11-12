@@ -3,7 +3,8 @@
 // Trích xuất mã đơn và tạo phản hồi chi tiết về tiến độ vận đơn
 // ============================================================
 
-import { getLocalOrderById, getLocalOrders } from '@/lib/order-storage';
+import { getLocalOrderById, getLocalOrders, saveLocalOrder } from '@/lib/order-storage';
+import { normalizeDynamoOrder } from '@/lib/order-normalizer';
 import apiClient from '@/lib/api-client';
 import { formatCurrencyVND, formatDate } from '@/lib/utils';
 import type { Order, OrderStatus } from '@/types/order';
@@ -43,13 +44,20 @@ function formatOrderDetailsMarkdown(order: Order): string {
   const paymentStatusStr =
     order.payment_status === 'PAID' ? 'Đã thanh toán' : 'Chờ thanh toán khi nhận hàng';
 
+  const trackingStr =
+    order.tracking_number && order.tracking_number.trim()
+      ? order.tracking_number
+      : order.order_status === 'PLACED'
+      ? 'Đang liên kết GHN tạo mã...'
+      : 'Đang cập nhật';
+
   return `### Thông tin đơn hàng #${order.order_id}
 
 - **Trạng thái:** ${getStatusBadge(order.order_status)}
 - **Thời gian đặt:** ${formatDate(order.created_at)}
 - **Dự kiến giao hàng:** ${order.estimated_delivery ? formatDate(order.estimated_delivery) : '2 - 3 ngày làm việc'}
-- **Đơn vị giao nhận:** ${order.shipping_partner || 'Giao Hàng Nhanh (GHN)'}
-- **Mã vận đơn:** ${order.tracking_number || 'GHN' + order.order_id.slice(-6) + 'VN'}
+- **Đơn vị giao nhận:** ${order.shipping_partner || 'Giao Hàng Nhanh (GHN Express)'}
+- **Mã vận đơn:** ${trackingStr}
 
 ### Thông tin người nhận
 - **Người nhận:** **${addr.full_name}** (${addr.phone})
@@ -113,15 +121,23 @@ export async function checkOrderInChat(text: string): Promise<string | null> {
       order = all.find((o) => o.order_id.toLowerCase() === rawId.toLowerCase()) ?? null;
     }
 
-    if (!order) {
-      try {
-        const res = await apiClient.get<Order>(`/api/orders/${rawId}`);
-        if (res?.order_id) {
-          order = res;
-        }
-      } catch {
-        // Backend có thể không có hoặc chưa sync
+    // Luôn ưu tiên truy vấn Backend DynamoDB để lấy mã vận đơn GHN thật và trạng thái mới nhất
+    try {
+      const res = await apiClient.get<Record<string, unknown>>(`/api/orders/${rawId}`);
+      if (res && (res.OrderID || res.order_id)) {
+        const backendOrder = normalizeDynamoOrder(res);
+        order = {
+          ...(order || {}),
+          ...backendOrder,
+          tracking_number: backendOrder.tracking_number || order?.tracking_number,
+          order_status: backendOrder.order_status || order?.order_status,
+          shipping_status: backendOrder.shipping_status || order?.shipping_status,
+          estimated_delivery: backendOrder.estimated_delivery || order?.estimated_delivery,
+        } as Order;
+        saveLocalOrder(order);
       }
+    } catch {
+      // Backend có thể offline hoặc mạng chậm, dùng tạm order từ local
     }
 
     if (order) {
