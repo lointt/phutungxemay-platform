@@ -71,66 +71,192 @@ function matchesCategory(productCat: string, targetCategory: string): boolean {
   );
 }
 
-function matchesModel(item: Product, targetModel: string): boolean {
-  const target = targetModel.toLowerCase().trim();
-  if (!target) return false;
+export interface VehicleFamily {
+  key: string;
+  label: string;
+  brand: string;
+  matchPatterns: RegExp[];
+  excludePatterns?: RegExp[];
+}
 
-  // 1. Nếu tìm "Phổ thông" hoặc "Mọi dòng xe" hoặc "Đa năng"
-  if (target.includes('phổ thông') || target.includes('mọi dòng') || target.includes('đa năng')) {
-    return (
-      (item.compatible_vehicles &&
-        item.compatible_vehicles.some(
-          (v) =>
-            v.brand.toLowerCase() === 'đa năng' ||
-            v.model.toLowerCase().includes('tất cả') ||
-            v.model.toLowerCase().includes('phổ thông'),
-        )) ||
-      (item.compatible_models &&
-        item.compatible_models.some(
-          (m) =>
-            m.toLowerCase().includes('phổ thông') ||
-            m.toLowerCase().includes('đa năng') ||
-            m.toLowerCase().includes('tất cả'),
-        )) ||
-      false
-    );
-  }
+export const CANONICAL_VEHICLE_FAMILIES: VehicleFamily[] = [
+  {
+    key: 'universal',
+    label: 'Phổ thông (Mọi dòng xe)',
+    brand: 'Đa năng',
+    matchPatterns: [/phổ thông/i, /mọi dòng/i, /tất cả.*xe/i, /đa năng/i, /universal/i],
+  },
+  {
+    key: 'honda-air-blade',
+    label: 'Honda Air Blade',
+    brand: 'Honda',
+    matchPatterns: [/air\s*blade/i, /\bab\s*(110|125|150|160)?\b/i],
+  },
+  {
+    key: 'honda-blade',
+    label: 'Honda Blade 110',
+    brand: 'Honda',
+    matchPatterns: [/(?<!air\s*)\bblade\b/i],
+    excludePatterns: [/air\s*blade/i],
+  },
+  {
+    key: 'honda-wave',
+    label: 'Honda Wave',
+    brand: 'Honda',
+    matchPatterns: [/\bwave\b/i],
+  },
+  {
+    key: 'honda-future',
+    label: 'Honda Future',
+    brand: 'Honda',
+    matchPatterns: [/\bfuture\b/i],
+  },
+  {
+    key: 'honda-winner',
+    label: 'Honda Winner / Winner X',
+    brand: 'Honda',
+    matchPatterns: [/\bwinner\b/i],
+  },
+  {
+    key: 'honda-vario',
+    label: 'Honda Vario / Click',
+    brand: 'Honda',
+    matchPatterns: [/\bvario\b/i, /\bclick\b/i],
+  },
+  {
+    key: 'honda-sh',
+    label: 'Honda SH / SH Mode',
+    brand: 'Honda',
+    matchPatterns: [/\bsh\b/i],
+  },
+  {
+    key: 'honda-vision-lead',
+    label: 'Honda Vision / Lead',
+    brand: 'Honda',
+    matchPatterns: [/\bvision\b/i, /\blead\b/i],
+  },
+  {
+    key: 'honda-sonic',
+    label: 'Honda Sonic',
+    brand: 'Honda',
+    matchPatterns: [/\bsonic\b/i],
+  },
+  {
+    key: 'honda-cbr',
+    label: 'Honda CBR',
+    brand: 'Honda',
+    matchPatterns: [/\bcbr\b/i],
+  },
+  {
+    key: 'yamaha-exciter',
+    label: 'Yamaha Exciter',
+    brand: 'Yamaha',
+    matchPatterns: [/\bexciter\b/i, /\bex\s*(135|150|155)\b/i],
+  },
+  {
+    key: 'yamaha-sirius-jupiter',
+    label: 'Yamaha Sirius / Jupiter',
+    brand: 'Yamaha',
+    matchPatterns: [/\bsirius\b/i, /\bjupiter\b/i],
+  },
+  {
+    key: 'yamaha-nvx',
+    label: 'Yamaha NVX',
+    brand: 'Yamaha',
+    matchPatterns: [/\bnvx\b/i],
+  },
+  {
+    key: 'yamaha-grande-janus',
+    label: 'Yamaha Grande / Janus',
+    brand: 'Yamaha',
+    matchPatterns: [/\bgrande\b/i, /\bjanus\b/i, /\bacruzo\b/i],
+  },
+  {
+    key: 'suzuki-raider-satria',
+    label: 'Suzuki Raider / Satria',
+    brand: 'Suzuki',
+    matchPatterns: [/\braider\b/i, /\bsatria\b/i],
+  },
+  {
+    key: 'piaggio-vespa',
+    label: 'Piaggio Vespa / Liberty',
+    brand: 'Piaggio',
+    matchPatterns: [/\bvespa\b/i, /\bliberty\b/i, /\bmedley\b/i, /\bprimavera\b/i, /\bsprint\b/i],
+  },
+];
 
-  // 2. Tách từ khóa con nếu có dấu '/'
-  const subTokens = target
-    .split('/')
-    .map((s) => s.trim().toLowerCase())
-    .filter(Boolean);
+function getProductVehicleFamilyKeys(item: Product): Set<string> {
+  const familyKeys = new Set<string>();
+  const vehicleTokens: { brand: string; model: string }[] = [];
 
-  // 3. So khớp trong compatible_vehicles
   if (item.compatible_vehicles && item.compatible_vehicles.length > 0) {
-    const matched = item.compatible_vehicles.some((v) => {
-      const vm = v.model.toLowerCase().trim();
-      const vb = v.brand.toLowerCase().trim();
-      if (!vm) return false;
-      if (vm.includes(target) || target.includes(vm)) return true;
-      if (`${vb} ${vm}`.includes(target) || target.includes(`${vb} ${vm}`)) return true;
-      return subTokens.some((tok) => vm.includes(tok) || tok.includes(vm));
-    });
-    if (matched) return true;
+    for (const v of item.compatible_vehicles) {
+      if (v.model) vehicleTokens.push({ brand: v.brand || '', model: v.model });
+    }
   }
 
-  // 4. So khớp trong compatible_models
   if (item.compatible_models && item.compatible_models.length > 0) {
-    const matched = item.compatible_models.some((m) => {
-      const lm = m.toLowerCase();
-      if (lm.includes(target) || target.includes(lm)) return true;
-      return subTokens.some((tok) => lm.includes(tok));
-    });
-    if (matched) return true;
+    for (const m of item.compatible_models) {
+      vehicleTokens.push({ brand: '', model: m });
+    }
   }
 
-  // 5. So khớp trong tên sản phẩm
-  const lowerName = item.name.toLowerCase();
-  if (lowerName.includes(target)) return true;
-  if (subTokens.some((tok) => tok.length >= 3 && lowerName.includes(tok))) return true;
+  if (vehicleTokens.length === 0 && item.name) {
+    vehicleTokens.push({ brand: item.brand || '', model: item.name });
+  }
 
-  return false;
+  const normalizedTokens: string[] = [];
+  for (const vt of vehicleTokens) {
+    const raw = `${vt.brand} ${vt.model}`.trim();
+    if (
+      vt.brand.toLowerCase() === 'đa năng' ||
+      raw.toLowerCase().includes('tất cả') ||
+      raw.toLowerCase().includes('phổ thông')
+    ) {
+      familyKeys.add('universal');
+      continue;
+    }
+
+    const parts = vt.model
+      .split('/')
+      .map((s) => s.replace(/\s*\([^)]*\)/g, '').trim())
+      .filter(Boolean);
+
+    if (parts.length > 1) {
+      for (const p of parts) {
+        normalizedTokens.push(`${vt.brand} ${p}`.trim());
+      }
+    } else {
+      normalizedTokens.push(raw.replace(/\s*\([^)]*\)/g, '').trim());
+    }
+  }
+
+  for (const token of normalizedTokens) {
+    let matchedCanonical = false;
+
+    for (const family of CANONICAL_VEHICLE_FAMILIES) {
+      if (family.key === 'universal') continue;
+
+      const isExcluded = family.excludePatterns?.some((rgx) => rgx.test(token));
+      if (isExcluded) continue;
+
+      const isMatch = family.matchPatterns.some((rgx) => rgx.test(token));
+      if (isMatch) {
+        familyKeys.add(family.key);
+        matchedCanonical = true;
+      }
+    }
+
+    if (!matchedCanonical && token) {
+      const cleanKey = token
+        .toLowerCase()
+        .replace(/[^a-z0-9\u00C0-\u024F\u1EA0-\u1EF9]+/gi, '-')
+        .replace(/^-|-$/g, '');
+      if (cleanKey) familyKeys.add(`custom-${cleanKey}`);
+    }
+  }
+
+  return familyKeys;
 }
 
 function parseCsvParam(raw: string | null): string[] {
@@ -372,72 +498,48 @@ export function ProductsCatalog({ initialProducts }: ProductsCatalogProps) {
     return counts;
   }, [products]);
 
-  const availableModels = useMemo(() => {
-    const modelSet = new Set<string>();
+  const availableVehicleFamilies = useMemo(() => {
+    const familyCounts = new Map<
+      string,
+      { key: string; label: string; count: number; brand: string }
+    >();
 
     for (const p of products) {
-      if (p.compatible_vehicles && p.compatible_vehicles.length > 0) {
-        for (const v of p.compatible_vehicles) {
-          const raw = v.model?.trim();
-          if (!raw) continue;
-          if (
-            v.brand.toLowerCase() === 'đa năng' ||
-            raw.toLowerCase().includes('tất cả') ||
-            raw.toLowerCase().includes('phổ thông')
-          ) {
-            modelSet.add('Phổ thông (Mọi dòng xe)');
+      const pKeys = getProductVehicleFamilyKeys(p);
+      for (const key of pKeys) {
+        if (!familyCounts.has(key)) {
+          const canonical = CANONICAL_VEHICLE_FAMILIES.find((f) => f.key === key);
+          if (canonical) {
+            familyCounts.set(key, {
+              key: canonical.key,
+              label: canonical.label,
+              count: 1,
+              brand: canonical.brand,
+            });
           } else {
-            const clean = raw.replace(/\s*\([^)]*\)/g, '').trim();
-            if (clean) modelSet.add(clean);
+            const rawLabel = key.replace(/^custom-/, '').replace(/-/g, ' ');
+            const capitalized = rawLabel.replace(/\b\w/g, (c) => c.toUpperCase());
+            familyCounts.set(key, {
+              key,
+              label: capitalized,
+              count: 1,
+              brand: 'Khác',
+            });
           }
-        }
-      } else if (p.compatible_models && p.compatible_models.length > 0) {
-        for (const m of p.compatible_models) {
-          const clean = m.replace(/\s*\([^)]*\)/g, '').trim();
-          if (!clean) continue;
-          if (
-            clean.toLowerCase().includes('phổ thông') ||
-            clean.toLowerCase().includes('đa năng') ||
-            clean.toLowerCase().includes('tất cả')
-          ) {
-            modelSet.add('Phổ thông (Mọi dòng xe)');
-          } else {
-            modelSet.add(clean);
-          }
+        } else {
+          const entry = familyCounts.get(key)!;
+          entry.count += 1;
         }
       }
     }
 
-    if (modelSet.size === 0) {
-      return POPULAR_MODELS.map((m) => ({
-        label: m.label,
-        value: m.value,
-        count: products.filter((p) => matchesModel(p, m.value)).length,
-      }));
-    }
-
-    return Array.from(modelSet)
-      .map((model) => ({
-        label: model,
-        value: model,
-        count: products.filter((p) => matchesModel(p, model)).length,
-      }))
-      .filter((m) => m.count > 0)
-      .sort((a, b) => {
-        if (a.value.includes('Phổ thông')) return -1;
-        if (b.value.includes('Phổ thông')) return 1;
-        if (b.count !== a.count) return b.count - a.count;
-        return a.label.localeCompare(b.label, 'vi');
-      });
+    return Array.from(familyCounts.values()).sort((a, b) => {
+      if (a.key === 'universal') return -1;
+      if (b.key === 'universal') return 1;
+      if (b.count !== a.count) return b.count - a.count;
+      return a.label.localeCompare(b.label, 'vi');
+    });
   }, [products]);
-
-  const modelCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
-    for (const m of availableModels) {
-      counts[m.value] = m.count;
-    }
-    return counts;
-  }, [availableModels]);
 
   const filteredProducts = useMemo(() => {
     let list = [...products];
@@ -477,9 +579,19 @@ export function ProductsCatalog({ initialProducts }: ProductsCatalogProps) {
     }
 
     if (selectedModels.length > 0) {
-      list = list.filter((item) =>
-        selectedModels.some((targetModel) => matchesModel(item, targetModel)),
-      );
+      list = list.filter((item) => {
+        const pKeys = getProductVehicleFamilyKeys(item);
+        return selectedModels.some((mKey) => {
+          if (pKeys.has(mKey)) return true;
+          // Hỗ trợ trường hợp URL chứa tên model cũ dạng text thuần (ví dụ "Air Blade", "Wave")
+          for (const fam of CANONICAL_VEHICLE_FAMILIES) {
+            if (fam.matchPatterns.some((rgx) => rgx.test(mKey))) {
+              if (pKeys.has(fam.key)) return true;
+            }
+          }
+          return false;
+        });
+      });
     }
 
     if (minPrice !== undefined) {
@@ -792,18 +904,18 @@ export function ProductsCatalog({ initialProducts }: ProductsCatalogProps) {
 
                 {openVehicleSection && (
                   <div className="space-y-0.5 max-h-52 overflow-y-auto pr-1">
-                    {availableModels.length === 0 ? (
+                    {availableVehicleFamilies.length === 0 ? (
                       <p className="text-xs text-gray-400 italic py-1 px-2.5">
                         Chưa có dòng xe tương thích
                       </p>
                     ) : (
-                      availableModels.map((m) => {
-                        const isChecked = selectedModels.includes(m.value);
+                      availableVehicleFamilies.map((fam) => {
+                        const isChecked = selectedModels.includes(fam.key);
                         return (
                           <button
-                            key={m.value}
+                            key={fam.key}
                             type="button"
-                            onClick={() => handleToggleModel(m.value)}
+                            onClick={() => handleToggleModel(fam.key)}
                             className={cn(
                               'group w-full flex items-center justify-between px-2.5 py-1.5 text-sm rounded-xl transition-all cursor-pointer',
                               isChecked
@@ -813,9 +925,9 @@ export function ProductsCatalog({ initialProducts }: ProductsCatalogProps) {
                           >
                             <span className="flex items-center gap-2 min-w-0 pr-1 truncate">
                               <CheckBoxIndicator checked={isChecked} />
-                              <span className="truncate text-xs sm:text-[13px]">{m.label}</span>
+                              <span className="truncate text-xs sm:text-[13px]">{fam.label}</span>
                             </span>
-                            <span className="text-xs text-gray-400 flex-shrink-0">{m.count}</span>
+                            <span className="text-xs text-gray-400 flex-shrink-0">{fam.count}</span>
                           </button>
                         );
                       })
@@ -1059,21 +1171,31 @@ export function ProductsCatalog({ initialProducts }: ProductsCatalogProps) {
                   </button>
                 </span>
               ))}
-              {selectedModels.map((model) => (
-                <span
-                  key={model}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-orange-50 text-orange-700 border border-orange-200/70"
-                >
-                  {model.startsWith('Xe') || model.startsWith('Phổ') ? model : `Xe ${model}`}
-                  <button
-                    type="button"
-                    onClick={() => handleToggleModel(model)}
-                    className="hover:text-orange-900 font-bold cursor-pointer"
+              {selectedModels.map((modelKey) => {
+                const fam =
+                  availableVehicleFamilies.find((f) => f.key === modelKey) ||
+                  CANONICAL_VEHICLE_FAMILIES.find((f) => f.key === modelKey);
+                const displayLabel = fam
+                  ? fam.label
+                  : modelKey.startsWith('Xe') || modelKey.startsWith('Phổ')
+                    ? modelKey
+                    : `Xe ${modelKey}`;
+                return (
+                  <span
+                    key={modelKey}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-orange-50 text-orange-700 border border-orange-200/70"
                   >
-                    ✕
-                  </button>
-                </span>
-              ))}
+                    {displayLabel}
+                    <button
+                      type="button"
+                      onClick={() => handleToggleModel(modelKey)}
+                      className="hover:text-orange-900 font-bold cursor-pointer"
+                    >
+                      ✕
+                    </button>
+                  </span>
+                );
+              })}
               {compatibleBrand && (
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-orange-50 text-orange-700 border border-orange-200/70">
                   {compatibleBrand}
@@ -1285,19 +1407,19 @@ export function ProductsCatalog({ initialProducts }: ProductsCatalogProps) {
                     </button>
                   )}
                 </div>
-                {availableModels.length === 0 ? (
+                {availableVehicleFamilies.length === 0 ? (
                   <p className="text-xs text-gray-400 italic py-2">
                     Chưa có dữ liệu dòng xe tương thích từ các sản phẩm trong kho.
                   </p>
                 ) : (
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 max-h-64 overflow-y-auto pr-1">
-                    {availableModels.map((m) => {
-                      const isChecked = selectedModels.includes(m.value);
+                    {availableVehicleFamilies.map((fam) => {
+                      const isChecked = selectedModels.includes(fam.key);
                       return (
                         <button
-                          key={m.value}
+                          key={fam.key}
                           type="button"
-                          onClick={() => handleToggleModel(m.value)}
+                          onClick={() => handleToggleModel(fam.key)}
                           className={cn(
                             'group flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-xl border text-left transition-all cursor-pointer',
                             isChecked
@@ -1307,10 +1429,10 @@ export function ProductsCatalog({ initialProducts }: ProductsCatalogProps) {
                         >
                           <span className="flex items-center gap-2.5 min-w-0">
                             <CheckBoxIndicator checked={isChecked} />
-                            <span className="text-xs sm:text-sm truncate">{m.label}</span>
+                            <span className="text-xs sm:text-sm truncate">{fam.label}</span>
                           </span>
                           <span className="text-[11px] text-gray-400 flex-shrink-0">
-                            {m.count}
+                            {fam.count}
                           </span>
                         </button>
                       );
