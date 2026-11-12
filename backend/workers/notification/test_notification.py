@@ -73,6 +73,25 @@ class TestNotificationWorker(unittest.TestCase):
         self.assertEqual(result["processed_records"], 1)
         mock_send_email.assert_called_once()
 
+    @patch("handler.send_email_smtp")
+    def test_lambda_handler_direct_eventbridge(self, mock_send_email):
+        eb_event = {
+            "source": "chatbot.orchestrator",
+            "detail-type": "HumanHandoverRequested",
+            "detail": {
+                "customer_name": "Lợi Nguyễn",
+                "phone": "0813072077",
+                "user_id": "user_eb",
+                "session_id": "sess_eb",
+                "reason": "Cần nhân viên tư vấn gấp",
+                "history_text": "User: Cần nhân viên",
+            }
+        }
+        result = handler.lambda_handler(eb_event, None)
+        self.assertEqual(result["status"], "SUCCESS")
+        self.assertEqual(result["mode"], "EVENTBRIDGE")
+        mock_send_email.assert_called_once()
+
 
 if __name__ == "__main__":
     unittest.main()

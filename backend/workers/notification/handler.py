@@ -326,6 +326,21 @@ def process_notification_event(detail_type, detail):
         send_email_smtp(recipient_email, subject, html)
 
 def lambda_handler(event, context):
+    # 1. Hỗ trợ sự kiện trực tiếp từ EventBridge (khi rule chuyển thẳng vào Lambda)
+    if "detail-type" in event:
+        detail_type = event.get("detail-type")
+        detail = event.get("detail", {})
+        print(f"[EVENTBRIDGE] NotificationWorker nhận sự kiện trực tiếp: {detail_type}")
+        process_notification_event(detail_type, detail)
+        return {"status": "SUCCESS", "mode": "EVENTBRIDGE"}
+
+    # 2. Hỗ trợ sự kiện trực tiếp từ Webhook/API
+    if event.get("action") == "requestHandover" or "customer_name" in event:
+        print("[DIRECT] NotificationWorker nhận yêu cầu handover trực tiếp")
+        process_notification_event("HumanHandoverRequested", event)
+        return {"status": "SUCCESS", "mode": "DIRECT"}
+
+    # 3. Hỗ trợ sự kiện từ SQS Queue (Mặc định từ EventBridge -> SQS)
     records = event.get('Records', [])
     print(f"[SQS] NotificationWorker nhận {len(records)} message cần gửi email.")
 
