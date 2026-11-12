@@ -26,7 +26,6 @@ class TestNotificationWorker(unittest.TestCase):
         self.assertIn("sess_12345", html)
         self.assertIn("user_customer_99", html)
         self.assertIn("Khách hàng cần tư vấn phụ tùng SH 150i 2024", html)
-        self.assertIn("Bên mình còn bố thắng Brembo cho SH 2024 không?", html)
         self.assertIn("Hỏi bố thắng SH", html)
 
     @patch("handler.send_email_smtp")

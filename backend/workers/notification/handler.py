@@ -263,11 +263,6 @@ def build_handover_requested_template(detail):
                     <tr><td style="padding:6px 0;color:#64748b;">Thời Gian Ghi Nhận:</td><td style="padding:6px 0;color:#0f172a;">{now_str}</td></tr>
                 </table>
 
-                <h3 style="color:#1e293b;border-bottom:2px solid #e2e8f0;padding-bottom:6px;">Nội Dung Khách Yêu Cầu</h3>
-                <div style="background:#f1f5f9;border-left:4px solid #ea580c;padding:12px 16px;border-radius:0 6px 6px 0;font-size:14px;color:#1e293b;font-weight:500;margin-bottom:20px;">
-                    "{question}"
-                </div>
-
                 <h3 style="color:#1e293b;border-bottom:2px solid #e2e8f0;padding-bottom:6px;">Lịch Sử Hội Thoại Gần Nhất (Chat Context)</h3>
                 <ul style="list-style:none;padding:0;margin:0 0 20px 0;line-height:1.5;">
                     {history_html}
