@@ -150,6 +150,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(async () => {
     await cognitoSignOut();
+    if (typeof window !== 'undefined') {
+      try {
+        window.localStorage.removeItem('guest_chat_session_id');
+        window.localStorage.removeItem('phutung_chat_history');
+      } catch {}
+    }
     applyTokens(null);
   }, [applyTokens]);
 

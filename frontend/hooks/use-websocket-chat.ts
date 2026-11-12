@@ -17,7 +17,19 @@ const WS_URL =
   process.env.NEXT_PUBLIC_WEBSOCKET_URL ??
   'wss://9trjqwwev1.execute-api.ap-southeast-1.amazonaws.com/production';
 
-const STORAGE_CHAT_KEY = 'phutung_chat_history';
+// Tạo khóa lưu trữ riêng biệt theo tài khoản người dùng hoặc khách (Guest)
+function getChatStorageKey(userId?: string | null): string {
+  if (typeof window === 'undefined') return 'phutung_chat_history_guest';
+  if (userId) {
+    return `phutung_chat_history_user_${userId}`;
+  }
+  let guestId = window.localStorage.getItem('guest_chat_session_id');
+  if (!guestId) {
+    guestId = generateGuestId();
+    window.localStorage.setItem('guest_chat_session_id', guestId);
+  }
+  return `phutung_chat_history_guest_${guestId}`;
+}
 
 // Mẫu kiến thức chẩn đoán thông minh dự phòng khi socket phản hồi chậm hoặc đang kết nối lại
 const KNOWLEDGE_BASE: {
@@ -105,6 +117,11 @@ export function useWebSocketChat() {
   const pingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const isManuallyClosedRef = useRef(false);
 
+  const activeKeyRef = useRef<string>('');
+  const [currentSessionKey, setCurrentSessionKey] = useState<string>(() =>
+    getChatStorageKey(user?.userId),
+  );
+
   // Tạo hoặc lấy session_id ổn định
   const getSessionId = useCallback(() => {
     if (typeof window === 'undefined') return 'USER#guest';
@@ -117,10 +134,21 @@ export function useWebSocketChat() {
     return `USER#${guestId}`;
   }, [user?.userId]);
 
-  // Khôi phục tin nhắn từ LocalStorage khi mount
+  // Khôi phục hoặc chuyển đổi lịch sử trò chuyện khi tài khoản đăng nhập thay đổi
   useEffect(() => {
+    // Dọn dẹp key dùng chung cũ (nếu có từ phiên bản trước) để tránh lẫn lộn dữ liệu giữa các tài khoản
     try {
-      const saved = window.localStorage.getItem(STORAGE_CHAT_KEY);
+      window.localStorage.removeItem('phutung_chat_history');
+    } catch {
+      // ignore
+    }
+
+    const targetKey = getChatStorageKey(user?.userId);
+    activeKeyRef.current = targetKey;
+    setCurrentSessionKey(targetKey);
+
+    try {
+      const saved = window.localStorage.getItem(targetKey);
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
@@ -132,27 +160,29 @@ export function useWebSocketChat() {
       // ignore
     }
 
-    // Tin nhắn chào mừng ban đầu từ Kỹ Sư AI
+    // Tin nhắn chào mừng ban đầu riêng biệt cho từng tài khoản
     const welcomeMsg: ChatMessage = {
-      id: 'welcome-msg',
+      id: `welcome-${Date.now()}`,
       role: 'model',
-      content:
-        '👋 Xin chào bạn! Tôi là **Kỹ Sư AI** của Phụ Tùng Xe Máy.\n\nTôi có thể giúp bạn:\n- 🔍 **Bắt bệnh tiếng kêu lạ & chẩn đoán sự cố xe**\n- 🛢️ **Tư vấn dầu nhớt & phụ tùng tương thích chính xác theo đời xe**\n- 📦 **Kiểm tra tiến độ đơn hàng và hướng dẫn lắp ráp**\n\nBạn đang cần tư vấn cho dòng xe nào hoặc phụ tùng nào?',
+      content: user?.name
+        ? `👋 Xin chào **${user.name}**! Tôi là **Kỹ Sư AI** của Phụ Tùng Xe Máy.\n\nTôi có thể giúp bạn:\n- 🔍 **Bắt bệnh tiếng kêu lạ & chẩn đoán sự cố xe**\n- 🛢️ **Tư vấn dầu nhớt & phụ tùng tương thích chính xác theo đời xe**\n- 📦 **Kiểm tra tiến độ đơn hàng và hướng dẫn lắp ráp**\n\nBạn đang cần tư vấn cho dòng xe nào hoặc phụ tùng nào?`
+        : '👋 Xin chào bạn! Tôi là **Kỹ Sư AI** của Phụ Tùng Xe Máy.\n\nTôi có thể giúp bạn:\n- 🔍 **Bắt bệnh tiếng kêu lạ & chẩn đoán sự cố xe**\n- 🛢️ **Tư vấn dầu nhớt & phụ tùng tương thích chính xác theo đời xe**\n- 📦 **Kiểm tra tiến độ đơn hàng và hướng dẫn lắp ráp**\n\nBạn đang cần tư vấn cho dòng xe nào hoặc phụ tùng nào?',
       timestamp: Date.now(),
     };
     setMessages([welcomeMsg]);
-  }, []);
+  }, [user?.userId, user?.name]);
 
-  // Lưu tin nhắn vào LocalStorage khi messages thay đổi
+  // Lưu tin nhắn vào LocalStorage khi messages thay đổi (chỉ lưu vào đúng khóa của tài khoản đang active)
   useEffect(() => {
-    if (messages.length > 0) {
+    const targetKey = getChatStorageKey(user?.userId);
+    if (activeKeyRef.current === targetKey && currentSessionKey === targetKey && messages.length > 0) {
       try {
-        window.localStorage.setItem(STORAGE_CHAT_KEY, JSON.stringify(messages));
+        window.localStorage.setItem(targetKey, JSON.stringify(messages));
       } catch {
         // ignore
       }
     }
-  }, [messages]);
+  }, [messages, currentSessionKey, user?.userId]);
 
   // Đóng an toàn socket cũ mà KHÔNG kích hoạt sự kiện onclose dây chuyền
   const safelyCloseOldSocket = useCallback(() => {
@@ -299,6 +329,13 @@ export function useWebSocketChat() {
     };
   }, [connectWebSocket, safelyCloseOldSocket]);
 
+  // Khi tài khoản đăng nhập thay đổi, làm mới kết nối socket để gửi đúng session_id mới
+  useEffect(() => {
+    if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+      connectWebSocket();
+    }
+  }, [user?.userId, connectWebSocket]);
+
   // Gửi tin nhắn
   const sendMessage = useCallback(
     async (text: string) => {
@@ -388,6 +425,7 @@ export function useWebSocketChat() {
   );
 
   const clearChat = useCallback(() => {
+    const targetKey = getChatStorageKey(user?.userId);
     const resetMsg: ChatMessage = {
       id: `welcome-${Date.now()}`,
       role: 'model',
@@ -396,11 +434,11 @@ export function useWebSocketChat() {
     };
     setMessages([resetMsg]);
     try {
-      window.localStorage.removeItem(STORAGE_CHAT_KEY);
+      window.localStorage.removeItem(targetKey);
     } catch {
       // ignore
     }
-  }, []);
+  }, [user?.userId]);
 
   return {
     connectionStatus,
