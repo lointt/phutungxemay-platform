@@ -52,9 +52,20 @@ function formatOrderDetailsMarkdown(order: Order): string {
       : 'Đang cập nhật';
 
   const calculatedItemsTotal = order.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const subtotal = order.subtotal > 0 ? order.subtotal : (calculatedItemsTotal > 0 ? calculatedItemsTotal : order.total_amount);
-  const shippingFee = order.shipping_fee !== undefined ? order.shipping_fee : 30000;
-  const finalTotal = order.final_amount && order.final_amount > 0 ? order.final_amount : subtotal + shippingFee;
+  const subtotal =
+    calculatedItemsTotal > 0
+      ? calculatedItemsTotal
+      : order.subtotal > 0
+      ? order.subtotal
+      : order.total_amount;
+  const shippingFee =
+    order.shipping_fee !== undefined
+      ? order.shipping_fee
+      : subtotal >= 500000
+      ? 0
+      : 30000;
+  // Luôn đảm bảo nguyên tắc toán học: Tổng thanh toán = Tạm tính + Phí vận chuyển
+  const finalTotal = subtotal + shippingFee;
 
   return `### Thông tin đơn hàng #${order.order_id}
 

@@ -10,12 +10,38 @@ const STORAGE_KEY = 'phutung_orders';
 const GUEST_KEY = 'phutung_guest_orders';
 
 /**
+ * Chuẩn hóa số tiền trong đơn hàng để đảm bảo tính nhất quán toán học:
+ * Tổng thanh toán = Tạm tính (tiền hàng) + Phí vận chuyển
+ */
+function sanitizeOrderPricing(o: Order): Order {
+  const itemsSum = Array.isArray(o.items)
+    ? o.items.reduce((sum, it) => sum + (Number(it.price) || 0) * (Number(it.quantity) || 1), 0)
+    : 0;
+  const subtotal = itemsSum > 0 ? itemsSum : (o.subtotal > 0 ? o.subtotal : o.total_amount || 0);
+  const shippingFee =
+    o.shipping_fee !== undefined
+      ? o.shipping_fee
+      : subtotal >= 500000 || subtotal === 0
+      ? 0
+      : 30000;
+  const total = subtotal + shippingFee;
+  return {
+    ...o,
+    subtotal,
+    shipping_fee: shippingFee,
+    total_amount: total,
+    final_amount: total,
+  };
+}
+
+/**
  * Khử trùng lặp đơn hàng theo order_id (giữ lại bản ghi mới nhất và đầy đủ mã vận đơn nhất)
  */
 function deduplicateOrders(orders: Order[]): Order[] {
   const map = new Map<string, Order>();
 
-  for (const o of orders) {
+  for (const raw of orders) {
+    const o = sanitizeOrderPricing(raw);
     const id = o.order_id || (o as unknown as { OrderID?: string }).OrderID;
     if (!id) continue;
 

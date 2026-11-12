@@ -345,9 +345,12 @@ function OrderTrackingContent({ params }: PageProps) {
             <span className="text-gray-900">Tổng thanh toán:</span>
             <span className="text-orange-600 font-extrabold text-base">
               {formatCurrencyVND(
-                order.final_amount && order.final_amount > 0
-                  ? order.final_amount
-                  : (order.subtotal && order.subtotal > 0 ? order.subtotal : order.total_amount) + (order.shipping_fee ?? 0)
+                (order.subtotal && order.subtotal > 0
+                  ? order.subtotal
+                  : order.items.reduce((s, it) => s + it.price * it.quantity, 0) || order.total_amount) +
+                  (order.shipping_fee !== undefined
+                    ? order.shipping_fee
+                    : ((order.subtotal || 0) >= 500000 ? 0 : 30000))
               )}
             </span>
           </div>

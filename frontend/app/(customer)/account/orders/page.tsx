@@ -369,9 +369,12 @@ export default function CustomerOrdersPage() {
                     <span className="text-xs text-gray-500">Tổng thanh toán: </span>
                     <span className="text-base font-extrabold text-orange-600">
                       {formatCurrencyVND(
-                        order.final_amount && order.final_amount > 0
-                          ? order.final_amount
-                          : (order.subtotal && order.subtotal > 0 ? order.subtotal : order.total_amount) + (order.shipping_fee ?? 0)
+                        (order.subtotal && order.subtotal > 0
+                          ? order.subtotal
+                          : order.items.reduce((sum, it) => sum + it.price * it.quantity, 0) || order.total_amount) +
+                          (order.shipping_fee !== undefined
+                            ? order.shipping_fee
+                            : ((order.subtotal || 0) >= 500000 ? 0 : 30000))
                       )}
                     </span>
                   </div>

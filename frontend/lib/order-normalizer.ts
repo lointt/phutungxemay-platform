@@ -38,26 +38,29 @@ export function normalizeDynamoOrder(raw: Record<string, unknown>): Order {
 
   const rawSubtotal = raw.subtotal ?? raw.Subtotal;
   const rawTotal = raw.total_amount ?? raw.TotalAmount;
-  const rawFinal = raw.final_amount ?? raw.FinalAmount;
   const rawShipping = raw.shipping_fee ?? raw.ShippingFee;
 
-  const shippingFee = Number(rawShipping !== undefined ? rawShipping : 30000);
-  
-  // Tạm tính (tiền hàng): ưu tiên subtotal, nếu không có thì lấy total_amount từ backend (trong DynamoDB total_amount là tiền hàng), hoặc tính từ items
+  // Tạm tính (tiền hàng): ưu tiên tính chuẩn từ danh sách items, nếu không có thì lấy subtotal/total_amount từ backend
   const subtotal = Number(
-    rawSubtotal !== undefined && Number(rawSubtotal) > 0
+    calculatedItemsTotal > 0
+      ? calculatedItemsTotal
+      : rawSubtotal !== undefined && Number(rawSubtotal) > 0
       ? rawSubtotal
       : rawTotal !== undefined && Number(rawTotal) > 0
       ? rawTotal
-      : calculatedItemsTotal
+      : 0
   );
 
-  // Tổng thanh toán: ưu tiên final_amount, nếu không có thì bằng subtotal + shippingFee
-  const finalAmount = Number(
-    rawFinal !== undefined && Number(rawFinal) > 0
-      ? rawFinal
-      : subtotal + shippingFee
+  const shippingFee = Number(
+    rawShipping !== undefined
+      ? rawShipping
+      : subtotal >= 500000 || subtotal === 0
+      ? 0
+      : 30000
   );
+
+  // Tổng thanh toán: Luôn bảo toàn tính nhất quán tuyệt đối = subtotal + shippingFee
+  const finalAmount = subtotal > 0 ? subtotal + shippingFee : 0;
 
   return {
     order_id: orderId,
