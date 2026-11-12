@@ -178,12 +178,34 @@ export const CANONICAL_VEHICLE_FAMILIES: VehicleFamily[] = [
     matchPatterns: [/\braider\b/i, /\bsatria\b/i],
   },
   {
+    key: 'honda-pcx',
+    label: 'Honda PCX',
+    brand: 'Honda',
+    matchPatterns: [/\bpcx\b/i],
+  },
+  {
     key: 'piaggio-vespa',
     label: 'Piaggio Vespa / Liberty',
     brand: 'Piaggio',
     matchPatterns: [/\bvespa\b/i, /\bliberty\b/i, /\bmedley\b/i, /\bprimavera\b/i, /\bsprint\b/i],
   },
 ];
+
+function isMeaningfulModelToken(token: string): boolean {
+  if (!token) return false;
+  // Bỏ tên hãng xe nếu có ở đầu
+  const withoutBrand = token
+    .replace(/^(honda|yamaha|suzuki|piaggio|sym|kawasaki|ducati|bmw|ktm)\s+/i, '')
+    .trim();
+  // Bỏ các từ chỉ phân khối, công nghệ: 125, 150, 160, cc, i, fi, abs, cbs...
+  const stripped = withoutBrand
+    .replace(/\b(\d+cc|\d+i|\d+fi|\d+abs|\d+cbs|cc|fi|abs|cbs|esp|vva|dohc|sohc)\b/gi, '')
+    .replace(/[0-9\W_]/g, '')
+    .trim();
+  // Phải còn ít nhất 2 ký tự chữ thực sự (ví dụ "SH", "NVX", "AB", "Rebel", "Ninja"...)
+  // Tuyệt đối không chấp nhận các chuỗi chỉ có số hoặc số + i như "125", "150", "150i", "160", "160i"
+  return stripped.length >= 2;
+}
 
 function getProductVehicleFamilyKeys(item: Product): Set<string> {
   const familyKeys = new Set<string>();
@@ -205,7 +227,6 @@ function getProductVehicleFamilyKeys(item: Product): Set<string> {
     vehicleTokens.push({ brand: item.brand || '', model: item.name });
   }
 
-  const normalizedTokens: string[] = [];
   for (const vt of vehicleTokens) {
     const raw = `${vt.brand} ${vt.model}`.trim();
     if (
@@ -217,42 +238,34 @@ function getProductVehicleFamilyKeys(item: Product): Set<string> {
       continue;
     }
 
-    const parts = vt.model
-      .split('/')
-      .map((s) => s.replace(/\s*\([^)]*\)/g, '').trim())
-      .filter(Boolean);
-
-    if (parts.length > 1) {
-      for (const p of parts) {
-        normalizedTokens.push(`${vt.brand} ${p}`.trim());
-      }
-    } else {
-      normalizedTokens.push(raw.replace(/\s*\([^)]*\)/g, '').trim());
-    }
-  }
-
-  for (const token of normalizedTokens) {
+    // 1. So khớp trực tiếp chuỗi xe với danh sách họ xe chuẩn (Canonical Families)
+    // Nhận diện trọn gói cả chuỗi như "Honda SH 125i / 150i / 160i", "Air Blade 125 / 150", "Wave Alpha / RSX / Future"
     let matchedCanonical = false;
-
     for (const family of CANONICAL_VEHICLE_FAMILIES) {
       if (family.key === 'universal') continue;
 
-      const isExcluded = family.excludePatterns?.some((rgx) => rgx.test(token));
+      const isExcluded = family.excludePatterns?.some((rgx) => rgx.test(raw));
       if (isExcluded) continue;
 
-      const isMatch = family.matchPatterns.some((rgx) => rgx.test(token));
+      const isMatch = family.matchPatterns.some((rgx) => rgx.test(raw));
       if (isMatch) {
         familyKeys.add(family.key);
         matchedCanonical = true;
       }
     }
 
-    if (!matchedCanonical && token) {
-      const cleanKey = token
-        .toLowerCase()
-        .replace(/[^a-z0-9\u00C0-\u024F\u1EA0-\u1EF9]+/gi, '-')
-        .replace(/^-|-$/g, '');
-      if (cleanKey) familyKeys.add(`custom-${cleanKey}`);
+    // 2. Nếu không khớp bất kỳ họ xe chuẩn nào (ví dụ dòng xe mới, xe phân khối lớn chưa khai báo)
+    // Kiểm tra xem có phải tên dòng xe thực tế hay không, loại bỏ triệt để các số phân khối vụn vặt (125, 150, 150i, 160, 160i...)
+    if (!matchedCanonical) {
+      const cleanModel = vt.model.replace(/\s*\([^)]*\)/g, '').trim();
+      if (isMeaningfulModelToken(cleanModel)) {
+        const fullCustom = `${vt.brand} ${cleanModel}`.trim();
+        const cleanKey = fullCustom
+          .toLowerCase()
+          .replace(/[^a-z0-9\u00C0-\u024F\u1EA0-\u1EF9]+/gi, '-')
+          .replace(/^-|-$/g, '');
+        if (cleanKey) familyKeys.add(`custom-${cleanKey}`);
+      }
     }
   }
 
