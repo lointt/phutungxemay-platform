@@ -41,9 +41,9 @@ RL_CONNECTION_PER_MIN = int(os.getenv("RL_CONNECTION_PER_MIN", "12"))
 RL_GLOBAL_PER_DAY = int(os.getenv("RL_GLOBAL_PER_DAY", "2000"))
 # client: tin user_id do client gửi (như bản cũ). authorizer: lấy user_id từ Lambda authorizer của $connect, bỏ qua body.
 AUTH_MODE = os.getenv("AUTH_MODE", "client")
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
 # Model dự phòng khi model chính quá tải (503/429). Để trống nếu không dùng.
-GEMINI_FALLBACK_MODEL = os.getenv("GEMINI_FALLBACK_MODEL", "")
+GEMINI_FALLBACK_MODEL = os.getenv("GEMINI_FALLBACK_MODEL", "gemini-1.5-flash")
 GEMINI_TIMEOUT_MS = int(os.getenv("GEMINI_TIMEOUT_MS", "10000"))  # tối đa cho MỖI lần gọi
 GEMINI_RETRIES = int(os.getenv("GEMINI_RETRIES", "1"))
 # Ngân sách thời gian TỔNG cho mọi lần gọi Gemini trong một câu hỏi (giây). Hết ngân sách thì
@@ -634,7 +634,7 @@ def make_handover_tools(session_id, user_id, question, state):
     return [request_human_agent]
 
 
-def answer_with_gemini(question, kb_hits, products, garage, past, user_id=None, state=None, session_id=None):
+def answer_with_gemini(question, kb_hits, products, garage, past, user_id=None, state=None, session_id=None, stream_callback=None):
     from google import genai
     from google.genai import types
     state = state if state is not None else {}
@@ -659,14 +659,22 @@ def answer_with_gemini(question, kb_hits, products, garage, past, user_id=None, 
     tools = (make_cart_tools(user_id, state, memory + " " + question, question, last_bot)
              + make_handover_tools(session_id, user_id, question, state))
     config_kwargs = {"tools": tools}
-    # Tùy chọn: giảm mức "suy nghĩ" của Gemini để trả lời nhanh hơn (minimal / low / medium / high).
-    # Để trống thì không gửi tham số, giữ mặc định của model.
-    thinking_level = os.getenv("GEMINI_THINKING_LEVEL", "").strip()
-    if thinking_level:
-        try:
-            config_kwargs["thinking_config"] = types.ThinkingConfig(thinking_level=thinking_level)
-        except Exception as exc:
-            print("Khong dat duoc thinking_level:", exc)
+
+    # Tối ưu: Hạ mức suy nghĩ ngầm của Gemini để trả lời nhanh tức thì
+    raw_thinking = os.getenv("GEMINI_THINKING_LEVEL", "").strip().lower()
+    if raw_thinking == "medium":
+        thinking_level = "low"
+    elif raw_thinking == "low":
+        thinking_level = "minimal"
+    elif raw_thinking in ("minimal", "high"):
+        thinking_level = raw_thinking
+    else:
+        thinking_level = "minimal"
+
+    try:
+        config_kwargs["thinking_config"] = types.ThinkingConfig(thinking_level=thinking_level)
+    except Exception as exc:
+        print("Khong dat duoc thinking_level:", exc)
     config = types.GenerateContentConfig(**config_kwargs)
 
     # Thử model chính (có thử lại ngắn khi quá tải), rồi model dự phòng nếu có cấu hình
@@ -698,6 +706,16 @@ def answer_with_gemini(question, kb_hits, products, garage, past, user_id=None, 
         call_ms = int(max(GEMINI_MIN_DEADLINE_MS, min(GEMINI_TIMEOUT_MS, remaining * 1000)))
         gemini = genai.Client(api_key=api_key, http_options=types.HttpOptions(timeout=call_ms))
         try:
+            if stream_callback:
+                full_text = []
+                for chunk in gemini.models.generate_content_stream(model=model_name, contents=prompt, config=config):
+                    delta = getattr(chunk, "text", "") or ""
+                    if delta:
+                        full_text.append(delta)
+                        stream_callback(delta)
+                result = "".join(full_text)
+                if result.strip():
+                    return result
             return gemini.models.generate_content(model=model_name, contents=prompt, config=config).text
         except Exception as exc:
             last_exc = exc
@@ -893,7 +911,19 @@ def _handle(event, context):
     state = {"cart_updated": False, "handover_ticket": None}
     degraded = False
     try:
-        answer = answer_with_gemini(question, kb_hits, products, garage, past, user_id, state, session_id)
+        def on_stream_chunk(delta):
+            try:
+                send({
+                    "type": "chunk",
+                    "delta": delta,
+                })
+            except Exception as exc:
+                print("Stream send error:", exc)
+
+        answer = answer_with_gemini(
+            question, kb_hits, products, garage, past, user_id, state, session_id,
+            stream_callback=on_stream_chunk
+        )
     except Exception as exc:
         # Mọi model Gemini đều lỗi: vẫn trả về kết quả tìm kiếm thay vì báo "hệ thống sự cố"
         print("Gemini that bai toan bo, dung cau tra loi du phong:", str(exc)[:200])
@@ -918,6 +948,7 @@ def _handle(event, context):
         {h["source_file"] for h in kb_hits if h["source_file"].lower() in answer_lower})
 
     send({
+        "type": "complete",
         "answer": answer,
         "sources": shown_sources,
         "products": [

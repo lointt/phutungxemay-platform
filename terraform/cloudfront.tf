@@ -93,7 +93,33 @@ resource "aws_cloudfront_function" "strip_api_prefix" {
   EOF
 }
 
-# 2. CloudFront Distribution chính
+# 2. Smart Cache Policy cho Next.js SSR (Ho tro stale-while-revalidate, ton trong Cache-Control tu Origin)
+resource "aws_cloudfront_cache_policy" "nextjs_smart_cache" {
+  name        = "nextjs-smart-cache-${var.environment}"
+  comment     = "Smart cache policy: Ho tro stale-while-revalidate, ton trong Cache-Control tu Next.js SSR"
+  default_ttl = 60
+  max_ttl     = 86400
+  min_ttl     = 0
+
+  parameters_in_cache_key_and_forwarded_to_origin {
+    cookies_config {
+      cookie_behavior = "all"
+    }
+    headers_config {
+      header_behavior = "whitelist"
+      headers {
+        items = ["Accept", "Accept-Language"]
+      }
+    }
+    query_strings_config {
+      query_string_behavior = "all"
+    }
+    enable_accept_encoding_gzip   = true
+    enable_accept_encoding_brotli = true
+  }
+}
+
+# 3. CloudFront Distribution chính
 resource "aws_cloudfront_distribution" "main" {
   enabled             = true
   is_ipv6_enabled     = true
@@ -151,7 +177,7 @@ resource "aws_cloudfront_distribution" "main" {
     origin_access_control_id = aws_cloudfront_origin_access_control.hosting_oac.id
   }
 
-  # Default Cache Behavior: Chuyển tiếp toàn bộ request động vào Lambda SSR Function URL
+  # Default Cache Behavior: Chuyển tiếp toàn bộ request động vào Lambda SSR Function URL voi Smart Cache Policy
   default_cache_behavior {
     target_origin_id       = "NextjsLambdaServerOrigin"
     viewer_protocol_policy = "redirect-to-https"
@@ -160,7 +186,7 @@ resource "aws_cloudfront_distribution" "main" {
     cached_methods  = ["GET", "HEAD"]
 
     compress                   = true
-    cache_policy_id            = local.managed_caching_disabled_id
+    cache_policy_id            = aws_cloudfront_cache_policy.nextjs_smart_cache.id
     origin_request_policy_id   = local.managed_all_viewer_except_host_id
     response_headers_policy_id = local.managed_security_headers_id
 
@@ -214,6 +240,20 @@ resource "aws_cloudfront_distribution" "main" {
       event_type   = "viewer-request"
       function_arn = aws_cloudfront_function.strip_api_prefix.arn
     }
+  }
+
+  # Ordered Behavior 4: Chuyển tiếp /handover-submit vào Next.js SSR không qua Cache
+  ordered_cache_behavior {
+    path_pattern     = "/handover-submit"
+    target_origin_id = "NextjsLambdaServerOrigin"
+
+    viewer_protocol_policy     = "redirect-to-https"
+    allowed_methods            = ["GET", "HEAD", "OPTIONS", "PUT", "POST", "PATCH", "DELETE"]
+    cached_methods             = ["GET", "HEAD"]
+    compress                   = true
+    cache_policy_id            = local.managed_caching_disabled_id
+    origin_request_policy_id   = local.managed_all_viewer_except_host_id
+    response_headers_policy_id = local.managed_security_headers_id
   }
 
   price_class = "PriceClass_100"

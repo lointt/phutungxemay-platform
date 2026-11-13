@@ -48,7 +48,7 @@ resource "aws_lambda_function" "nextjs_server" {
   role          = aws_iam_role.lambda_nextjs_exec.arn
   runtime       = "nodejs22.x"
   handler       = "index.handler"
-  memory_size   = 1024
+  memory_size   = 1769
   timeout       = 30
 
   filename         = data.archive_file.dummy_lambda_zip.output_path

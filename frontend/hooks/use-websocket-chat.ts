@@ -118,6 +118,7 @@ export function useWebSocketChat() {
   const isManuallyClosedRef = useRef(false);
 
   const activeKeyRef = useRef<string>('');
+  const streamingMsgIdRef = useRef<string | null>(null);
   const [currentSessionKey, setCurrentSessionKey] = useState<string>(() =>
     getChatStorageKey(user?.userId),
   );
@@ -235,6 +236,33 @@ export function useWebSocketChat() {
       ws.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data) as WebSocketResponse;
+
+          // 1. Xử lý Token Streaming thời gian thực từ Gemini
+          if (data.type === 'chunk' && data.delta) {
+            setIsThinking(false);
+            const delta = data.delta;
+            setMessages((prev) => {
+              if (streamingMsgIdRef.current) {
+                return prev.map((m) =>
+                  m.id === streamingMsgIdRef.current
+                    ? { ...m, content: m.content + delta }
+                    : m,
+                );
+              } else {
+                const streamId = `msg-stream-${Date.now()}`;
+                streamingMsgIdRef.current = streamId;
+                const newMsg: ChatMessage = {
+                  id: streamId,
+                  role: 'model',
+                  content: delta,
+                  timestamp: Date.now(),
+                };
+                return [...prev, newMsg];
+              }
+            });
+            return;
+          }
+
           const text = (data.answer || data.response || '').trim();
 
           // Bỏ qua gói tin rỗng hoặc gói tin cảnh báo thiếu câu hỏi do ping/heartbeat
@@ -262,28 +290,50 @@ export function useWebSocketChat() {
               mappedProducts.push(data.product);
             }
 
-            const aiMsg: ChatMessage = {
-              id: `msg-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-              role: 'model',
-              content: text,
-              timestamp: Date.now(),
-              embeddedProduct: mappedProducts[0],
-              embeddedProducts: mappedProducts.length > 0 ? mappedProducts : undefined,
-              sources: data.sources && data.sources.length > 0 ? data.sources : undefined,
-              handoverTicket: undefined,
-              cartUpdated: data.cart_updated,
-            };
             setMessages((prev) => {
+              // Nếu có tin nhắn đang stream, cập nhật lại toàn văn và gắn sản phẩm/nguồn
+              if (streamingMsgIdRef.current) {
+                const streamId = streamingMsgIdRef.current;
+                streamingMsgIdRef.current = null;
+                return prev.map((m) =>
+                  m.id === streamId
+                    ? {
+                        ...m,
+                        content: text || m.content,
+                        embeddedProduct: mappedProducts[0],
+                        embeddedProducts: mappedProducts.length > 0 ? mappedProducts : undefined,
+                        sources: data.sources && data.sources.length > 0 ? data.sources : undefined,
+                        cartUpdated: data.cart_updated,
+                      }
+                    : m,
+                );
+              }
+
+              // Tin nhắn không qua stream (ví dụ phản hồi nhanh hoặc fallback)
               const last = prev[prev.length - 1];
               if (last && last.content.trim().toLowerCase() === text.trim().toLowerCase()) {
                 return prev;
               }
+
+              const aiMsg: ChatMessage = {
+                id: `msg-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+                role: 'model',
+                content: text,
+                timestamp: Date.now(),
+                embeddedProduct: mappedProducts[0],
+                embeddedProducts: mappedProducts.length > 0 ? mappedProducts : undefined,
+                sources: data.sources && data.sources.length > 0 ? data.sources : undefined,
+                handoverTicket: undefined,
+                cartUpdated: data.cart_updated,
+              };
               return [...prev, aiMsg];
             });
           }
         } catch {
           // Tin nhắn văn bản thô
           if (typeof event.data === 'string' && event.data.trim()) {
+            setIsThinking(false);
+            streamingMsgIdRef.current = null;
             const aiMsg: ChatMessage = {
               id: `msg-${Date.now()}`,
               role: 'model',
@@ -416,6 +466,7 @@ export function useWebSocketChat() {
     async (text: string) => {
       const trimmed = text.trim();
       if (!trimmed) return;
+      streamingMsgIdRef.current = null;
 
       const userMsg: ChatMessage = {
         id: `user-${Date.now()}`,

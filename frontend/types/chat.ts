@@ -52,6 +52,8 @@ export interface WebSocketPayload {
 
 /** Payload nhận về từ WebSocket API Gateway (Lambda RAG response) */
 export interface WebSocketResponse {
+  type?: 'chunk' | 'complete';        // Cơ chế Streaming token từ Gemini
+  delta?: string;                      // Mẩu ký tự/từ ngữ truyền thời gian thực
   answer?: string;                     // Câu trả lời chính từ Gemini RAG
   sources?: string[];                  // Danh sách file KB tham chiếu
   products?: ChatbotProductItem[];     // Danh sách sản phẩm gợi ý
