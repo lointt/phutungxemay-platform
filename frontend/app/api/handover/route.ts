@@ -7,9 +7,9 @@ import tls from 'node:tls';
 // Đảm bảo hoạt động 100% độc lập, không phụ thuộc vào trạng thái Gemini AI
 // ============================================================
 
-const SMTP_USER = process.env.SMTP_USER || 'phutungxemay246@gmail.com';
-const SMTP_PASS = (process.env.SMTP_PASSWORD || 'vzjlptdpcbkdmjyv').replace(/\s+/g, '');
-const STAFF_EMAIL = process.env.STAFF_EMAIL || 'lointt1199@gmail.com';
+const SMTP_USER = 'phutungxemay246@gmail.com';
+const SMTP_PASS = 'vzjlptdpcbkdmjyv';
+const STAFF_EMAIL = 'lointt1199@gmail.com';
 
 function sendSmtpEmail({
   to,

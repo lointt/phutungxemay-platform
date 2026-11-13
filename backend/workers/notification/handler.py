@@ -7,42 +7,14 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from datetime import datetime, timezone
 
-SMTP_SERVER = os.environ.get("SMTP_SERVER", "smtp.gmail.com")
-SMTP_PORT = int(os.environ.get("SMTP_PORT", 465))
-SMTP_USER = os.environ.get("SMTP_USER", "").strip() or "phutungxemay246@gmail.com"
-STAFF_EMAIL = os.environ.get("STAFF_EMAIL", "lointt1199@gmail.com").strip() or "lointt1199@gmail.com"
-
-_cached_smtp_password = None
+SMTP_SERVER = "smtp.gmail.com"
+SMTP_PORT = 465
+SMTP_USER = "phutungxemay246@gmail.com"
+STAFF_EMAIL = "lointt1199@gmail.com"
 
 def get_smtp_password():
-    """Lấy SMTP Password an toàn từ cache, biến môi trường hoặc AWS SSM Parameter Store SecureString"""
-    global _cached_smtp_password
-    if _cached_smtp_password:
-        return _cached_smtp_password
-
-    # 1. Thử đọc từ env var trực tiếp (nếu có)
-    pwd = os.environ.get("SMTP_PASSWORD", "").replace(" ", "")
-    if pwd:
-        _cached_smtp_password = pwd
-        return pwd
-
-    # 2. Đọc an toàn từ AWS Systems Manager (SSM) Parameter Store SecureString
-    param_name = os.environ.get("SMTP_PASSWORD_PARAM", "/ecommerce/smtp_password")
-    try:
-        region = os.environ.get("AWS_REGION", "ap-southeast-1")
-        ssm = boto3.client("ssm", region_name=region)
-        resp = ssm.get_parameter(Name=param_name, WithDecryption=True)
-        val = resp.get("Parameter", {}).get("Value", "").replace(" ", "")
-        if val and val != "GMAIL_APP_PASSWORD_DEFAULT":
-            _cached_smtp_password = val
-            return val
-    except Exception as e:
-        print(f"[WARN] Không thể đọc SMTP_PASSWORD từ SSM: {e}")
-
-    # 3. Fallback mật khẩu ứng dụng Gmail phutungxemay246@gmail.com
-    fallback_pwd = "vzjlptdpcbkdmjyv"
-    _cached_smtp_password = fallback_pwd
-    return fallback_pwd
+    """Mật khẩu ứng dụng Gmail phutungxemay246@gmail.com cố định"""
+    return "vzjlptdpcbkdmjyv"
 
 def format_currency(amount):
     """Format số tiền sang định dạng VND"""
