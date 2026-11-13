@@ -424,26 +424,7 @@ export function useWebSocketChat() {
         console.error('[HANDOVER] Lỗi gửi yêu cầu handover qua /handover-submit:', err);
       }
 
-      // 3. Đồng bộ vào phiên hội thoại qua WebSocket (Dùng route 'sendMessage' được API Gateway hỗ trợ)
-      if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
-        try {
-          socketRef.current.send(
-            JSON.stringify({
-              action: 'sendMessage',
-              handover_info: {
-                name: info.name,
-                phone: info.phone,
-                reason: info.reason,
-              },
-              question: `Khách hàng yêu cầu nhân viên hỗ trợ: Họ tên: ${info.name}, SĐT: ${info.phone}, Lý do: ${info.reason}`,
-            }),
-          );
-        } catch (wsErr) {
-          console.warn('[HANDOVER] WebSocket send failed:', wsErr);
-        }
-      }
-
-      // 4. Phản hồi xác nhận đúng yêu cầu
+      // 3. Phản hồi xác nhận duy nhất cho khách hàng trên giao diện (tránh gửi qua WebSocket để không bị trùng lặp email và tin nhắn)
       const confirmMsg: ChatMessage = {
         id: `ai-handover-confirm-${Date.now()}`,
         role: 'model',

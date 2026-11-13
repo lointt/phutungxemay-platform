@@ -309,6 +309,12 @@ def notify_handover(session_id, user_id, question, reason, customer_name=None, p
     if not force and not claim_handover(session_id):
         return None
     ticket_id = "HO_" + time.strftime("%Y%m%d%H%M%S", time.gmtime()) + "_" + os.urandom(2).hex()
+
+    # Chỉ gửi email khi có SĐT khách hàng hợp lệ (tránh gửi email rác 'Chưa cung cấp')
+    if not phone or str(phone).strip() in ("", "Chưa cung cấp"):
+        print(f"[HANDOVER] Bỏ qua phát sự kiện email vì không có SĐT: name={customer_name}, phone={phone}")
+        return ticket_id
+
     history_text = " | ".join(load_history(session_id))[-1500:]
     detail = {
         "ticket_id": ticket_id,
