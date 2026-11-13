@@ -74,9 +74,6 @@ jobs:
           aws lambda update-function-code \
             --function-name ${{ vars.AWS_LAMBDA_SERVER_NAME || secrets.AWS_LAMBDA_SERVER_NAME }} \
             --zip-file fileb://function.zip
-          aws lambda update-function-configuration \
-            --function-name ${{ vars.AWS_LAMBDA_SERVER_NAME || secrets.AWS_LAMBDA_SERVER_NAME }} \
-            --memory-size 1769
 
       - name: 🔄 Invalidate CloudFront Distribution Cache
         run: |
