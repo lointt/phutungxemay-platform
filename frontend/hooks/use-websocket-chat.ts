@@ -273,7 +273,13 @@ export function useWebSocketChat() {
               handoverTicket: undefined,
               cartUpdated: data.cart_updated,
             };
-            setMessages((prev) => [...prev, aiMsg]);
+            setMessages((prev) => {
+              const last = prev[prev.length - 1];
+              if (last && last.content.trim().toLowerCase() === text.trim().toLowerCase()) {
+                return prev;
+              }
+              return [...prev, aiMsg];
+            });
           }
         } catch {
           // Tin nhắn văn bản thô
@@ -351,31 +357,59 @@ export function useWebSocketChat() {
         prev.map((m) => (m.isHandoverForm ? { ...m, handoverSubmitted: true } : m)),
       );
 
-      // 2. Gửi trực tiếp tới Next.js API /api/handover (hoạt động độc lập 100%, không phụ thuộc Gemini AI)
-      try {
-        await fetch('/api/handover', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: info.name,
-            phone: info.phone,
-            reason: info.reason,
-            session_id: getSessionId(),
-            user_id: user?.userId || undefined,
-          }),
-        });
-      } catch (err) {
-        console.error('Lỗi gửi yêu cầu handover qua API:', err);
+      // 2. Gửi qua WebSocket (Kênh chính tới ChatOrchestrator -> EventBridge -> NotificationWorker)
+      const handoverPayload = {
+        action: 'requestHandover',
+        handover_info: {
+          name: info.name,
+          phone: info.phone,
+          reason: info.reason,
+        },
+      };
+
+      let wsSent = false;
+      if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+        try {
+          socketRef.current.send(JSON.stringify(handoverPayload));
+          wsSent = true;
+        } catch (wsErr) {
+          console.warn('[HANDOVER] WebSocket send failed:', wsErr);
+        }
       }
 
-      // 3. Phản hồi xác nhận đúng yêu cầu
+      // 3. Kênh dự phòng: Gửi qua /handover-submit (không dùng tiền tố /api/ để tránh bị CloudFront chặn)
+      if (!wsSent) {
+        try {
+          await fetch('/handover-submit', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              name: info.name,
+              phone: info.phone,
+              reason: info.reason,
+              session_id: getSessionId(),
+              user_id: user?.userId || undefined,
+            }),
+          });
+        } catch (err) {
+          console.error('[HANDOVER] Lỗi gửi yêu cầu handover qua HTTP fallback:', err);
+        }
+      }
+
+      // 4. Phản hồi xác nhận đúng yêu cầu
       const confirmMsg: ChatMessage = {
         id: `ai-handover-confirm-${Date.now()}`,
         role: 'model',
         content: 'vấn đề của anh/chị đã được gửi đến nhân viên, nhân viên sẽ sớm liên hệ lại trong 24h ạ!',
         timestamp: Date.now(),
       };
-      setMessages((prev) => [...prev, confirmMsg]);
+      setMessages((prev) => {
+        const last = prev[prev.length - 1];
+        if (last && last.content.toLowerCase().includes('vấn đề của anh/chị đã được gửi đến nhân viên')) {
+          return prev;
+        }
+        return [...prev, confirmMsg];
+      });
     },
     [getSessionId, user?.userId],
   );

@@ -304,9 +304,9 @@ def claim_handover(session_id):
         raise
 
 
-def notify_handover(session_id, user_id, question, reason, customer_name=None, phone=None):
+def notify_handover(session_id, user_id, question, reason, customer_name=None, phone=None, force=False):
     """Phát sự kiện HumanHandoverRequested. Trả về ticket_id, hoặc None nếu đã gửi gần đây."""
-    if not claim_handover(session_id):
+    if not force and not claim_handover(session_id):
         return None
     ticket_id = "HO_" + time.strftime("%Y%m%d%H%M%S", time.gmtime()) + "_" + os.urandom(2).hex()
     history_text = " | ".join(load_history(session_id))[-1500:]
@@ -320,13 +320,27 @@ def notify_handover(session_id, user_id, question, reason, customer_name=None, p
         "question": question,
         "history_text": history_text,
     }
-    events_client.put_events(Entries=[{
-        "Source": "chatbot.orchestrator",
-        "DetailType": "HumanHandoverRequested",
-        "Detail": json.dumps(detail, ensure_ascii=False),
-        "EventBusName": EVENT_BUS,
-    }])
-    print("Handover:", ticket_id, reason, customer_name, phone)
+    bus_name = EVENT_BUS or os.getenv("EVENT_BUS_NAME", "ecommerce-event-bus-replica")
+    try:
+        events_client.put_events(Entries=[{
+            "Source": "chatbot.orchestrator",
+            "DetailType": "HumanHandoverRequested",
+            "Detail": json.dumps(detail, ensure_ascii=False),
+            "EventBusName": bus_name,
+        }])
+        print(f"Handover event emitted to {bus_name}:", ticket_id, reason, customer_name, phone)
+    except Exception as exc:
+        print(f"[WARN] Lỗi khi put_events tới {bus_name}: {exc}, thử gửi tới default bus")
+        try:
+            events_client.put_events(Entries=[{
+                "Source": "chatbot.orchestrator",
+                "DetailType": "HumanHandoverRequested",
+                "Detail": json.dumps(detail, ensure_ascii=False),
+                "EventBusName": "default",
+            }])
+        except Exception as exc2:
+            print(f"[ERROR] Lỗi gửi default bus: {exc2}")
+
     return ticket_id
 
 
@@ -768,10 +782,10 @@ def _handle(event, context):
         c_name = h_info.get("name") or h_info.get("customer_name") or body.get("customer_name") or ""
         c_phone = h_info.get("phone") or body.get("phone") or ""
         c_reason = h_info.get("reason") or body.get("reason") or question or "Yêu cầu liên hệ tư vấn"
-        ticket = notify_handover(session_id, user_id, question or c_reason, c_reason, c_name, c_phone)
-        answer = "Vấn đề của anh/chị đã được gửi đến nhân viên, nhân viên sẽ sớm liên hệ lại trong 24h ạ!"
+        ticket = notify_handover(session_id, user_id, question or c_reason, c_reason, c_name, c_phone, force=True)
+        answer = "vấn đề của anh/chị đã được gửi đến nhân viên, nhân viên sẽ sớm liên hệ lại trong 24h ạ!"
         past = load_history(session_id)
-        past.extend([f"Khách yêu cầu liên hệ nhân viên: {c_name} ({c_phone}) - {c_reason}", f"Bot: {answer}"])
+        past.extend([f"Khách: Khách hàng yêu cầu nhân viên hỗ trợ: Họ tên: {c_name}, SĐT: {c_phone}, Lý do: {c_reason}", f"Bot: {answer}"])
         save_history(session_id, past)
         send({
             "answer": answer,

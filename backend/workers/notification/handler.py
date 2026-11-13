@@ -2,13 +2,14 @@ import os
 import json
 import smtplib
 import boto3
+import html as html_mod
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from datetime import datetime, timezone
 
 SMTP_SERVER = os.environ.get("SMTP_SERVER", "smtp.gmail.com")
 SMTP_PORT = int(os.environ.get("SMTP_PORT", 465))
-SMTP_USER = os.environ.get("SMTP_USER", "")
+SMTP_USER = os.environ.get("SMTP_USER", "").strip() or "phutungxemay246@gmail.com"
 STAFF_EMAIL = os.environ.get("STAFF_EMAIL", "lointt1199@gmail.com").strip() or "lointt1199@gmail.com"
 
 _cached_smtp_password = None
@@ -38,7 +39,10 @@ def get_smtp_password():
     except Exception as e:
         print(f"[WARN] Không thể đọc SMTP_PASSWORD từ SSM: {e}")
 
-    return ""
+    # 3. Fallback mật khẩu ứng dụng Gmail phutungxemay246@gmail.com
+    fallback_pwd = "vzjlptdpcbkdmjyv"
+    _cached_smtp_password = fallback_pwd
+    return fallback_pwd
 
 def format_currency(amount):
     """Format số tiền sang định dạng VND"""
@@ -211,90 +215,55 @@ def build_payment_success_template(detail):
     """
     return html
 
-def build_handover_requested_template(detail):
-    ticket_id = detail.get("ticket_id", "N/A")
-    session_id = detail.get("session_id", "N/A")
-    user_id = detail.get("user_id", "Khách chưa đăng nhập")
+def build_handover_plain_text(detail):
     customer_name = detail.get("customer_name") or detail.get("name") or "Khách hàng"
     phone = detail.get("phone") or "Chưa cung cấp"
-    reason = detail.get("reason", "Khách hàng yêu cầu gặp nhân viên tư vấn")
-    question = detail.get("question", "N/A")
+    reason = detail.get("reason", "Cần nhân viên hỗ trợ gấp")
     history_text = detail.get("history_text", "")
-    now_str = datetime.now(timezone.utc).strftime("%d/%m/%Y %H:%M:%S UTC")
 
-    history_html = ""
+    history_lines = []
     if history_text:
         snippets = history_text.split(" | ")
-        for snip in snippets[-8:]:
-            if snip.strip():
-                history_html += f"<li style='margin-bottom: 6px; padding: 8px 12px; background: #f8fafc; border-radius: 4px; border-left: 3px solid #64748b; font-size: 13px;'>{snip.strip()}</li>"
-    else:
-        history_html = "<li style='color: #94a3b8; font-style: italic;'>Không có lịch sử hội thoại trước đó.</li>"
+        for snip in snippets[-6:]:
+            s = snip.strip()
+            if s:
+                if not s.startswith("-"):
+                    s = f"- {s}"
+                history_lines.append(s)
 
-    html = f"""
-    <!DOCTYPE html>
-    <html>
-    <head><meta charset="utf-8"></head>
-    <body style="font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background-color:#f8fafc;margin:0;padding:24px;">
-        <div style="max-width:650px;margin:auto;background:#ffffff;border-radius:12px;border:1px solid #e2e8f0;overflow:hidden;box-shadow:0 4px 6px rgba(0,0,0,0.05);">
-            <div style="background:linear-gradient(135deg, #ea580c 0%, #c2410c 100%);padding:24px;text-align:center;color:#ffffff;">
-                <h1 style="margin:0;font-size:22px;letter-spacing:0.5px;">📞 YÊU CẦU LIÊN HỆ LẠI KHÁCH HÀNG</h1>
-            </div>
-            <div style="padding:24px;">
-                <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:16px;margin-bottom:20px;">
-                    <p style="margin:0;color:#9a3412;font-weight:700;font-size:16px;">
-                        Khách hàng đang yêu cầu nhân viên liên hệ tư vấn trong 24h!
-                    </p>
-                    <p style="margin:8px 0 0;color:#c2410c;font-size:14px;">
-                        Nguyên nhân / Vấn đề: <strong>{reason}</strong>
-                    </p>
-                </div>
+    if not history_lines:
+        history_lines = ["- Khách: Cần hỗ trợ bảo hành", "- Bot: Đã tiếp nhận"]
 
-                <h3 style="color:#1e293b;border-bottom:2px solid #e2e8f0;padding-bottom:6px;margin-top:0;">Thông Tin Liên Hệ Khách Hàng</h3>
-                <table style="width:100%;font-size:14px;border-collapse:collapse;margin-bottom:16px;">
-                    <tr><td style="padding:6px 0;color:#64748b;width:150px;">Họ và Tên:</td><td style="padding:6px 0;font-weight:700;color:#0f172a;font-size:15px;">{customer_name}</td></tr>
-                    <tr><td style="padding:6px 0;color:#64748b;">Số Điện Thoại:</td><td style="padding:6px 0;">
-                        <a href="tel:{phone}" style="display:inline-block;background:#ea580c;color:#ffffff;font-weight:800;font-size:15px;padding:6px 14px;border-radius:6px;text-decoration:none;">
-                            📞 {phone} (Bấm để gọi)
-                        </a>
-                    </td></tr>
-                    <tr><td style="padding:6px 0;color:#64748b;">Mã Khách Hàng:</td><td style="padding:6px 0;font-weight:600;color:#0f172a;">{user_id}</td></tr>
-                    <tr><td style="padding:6px 0;color:#64748b;">Session ID:</td><td style="padding:6px 0;font-family:monospace;font-size:13px;color:#334155;">{session_id}</td></tr>
-                    <tr><td style="padding:6px 0;color:#64748b;">Thời Gian Ghi Nhận:</td><td style="padding:6px 0;color:#0f172a;">{now_str}</td></tr>
-                </table>
+    history_str = "\n".join(history_lines)
 
-                <h3 style="color:#1e293b;border-bottom:2px solid #e2e8f0;padding-bottom:6px;">Lịch Sử Hội Thoại Gần Nhất (Chat Context)</h3>
-                <ul style="list-style:none;padding:0;margin:0 0 20px 0;line-height:1.5;">
-                    {history_html}
-                </ul>
-
-                <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:14px;text-align:center;">
-                    <p style="margin:0;font-size:13px;color:#166534;font-weight:600;">
-                        ⚠️ Cam kết dịch vụ: Vui lòng liên hệ lại khách hàng qua số {phone} trong vòng 24 giờ.
-                    </p>
-                </div>
-            </div>
-            <div style="background:#f8fafc;padding:16px 24px;border-top:1px solid #e2e8f0;text-align:center;font-size:12px;color:#94a3b8;">
-                Notification Worker | Cửa Hàng Phụ Tùng Xe Máy | Hộp thư tiếp nhận: {STAFF_EMAIL}
-            </div>
-        </div>
-    </body>
-    </html>
-    """
-    return html
+    text = (
+        "CÓ KHÁCH HÀNG YÊU CẦU NHÂN VIÊN LIÊN HỆ LẠI TRONG 24H:\n\n"
+        f"Họ và tên     : {customer_name}\n"
+        f"Số điện thoại : {phone}\n"
+        f"Nguyên nhân   : {reason}\n\n"
+        "Lịch sử hội thoại gần nhất:\n"
+        f"{history_str}"
+    )
+    return text
 
 def process_notification_event(detail_type, detail):
     # Xử lý sự kiện Chuyển nhân viên tư vấn (Human Handover) từ Chatbot
     if detail_type == "HumanHandoverRequested":
-        ticket_id = detail.get("ticket_id", "N/A")
         recipient_email = STAFF_EMAIL
         c_name = detail.get("customer_name") or detail.get("name") or "Khách hàng"
-        c_phone = detail.get("phone") or "N/A"
-        c_reason = detail.get("reason", "Cần tư vấn hỗ trợ")
-        print(f"[NOTIFICATION] Bắt sự kiện 'HumanHandoverRequested' (Ticket #{ticket_id}) -> Gửi cảnh báo tới Staff Email: {recipient_email}")
+        c_phone = detail.get("phone") or "Chưa cung cấp"
+        print(f"[NOTIFICATION] Bắt sự kiện 'HumanHandoverRequested' -> Gửi cảnh báo tới Staff Email: {recipient_email}")
         subject = f"[LIÊN HỆ LẠI KHÁCH HÀNG] {c_name} - SĐT: {c_phone}"
-        html = build_handover_requested_template(detail)
-        send_email_smtp(recipient_email, subject, html)
+        text_content = build_handover_plain_text(detail)
+        escaped_text = html_mod.escape(text_content)
+        html_content = f"""<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 15px; line-height: 1.6; color: #111827; background-color: #ffffff; margin: 0; padding: 16px;">
+<pre style="font-family: inherit; font-size: inherit; white-space: pre-wrap; line-height: inherit; color: inherit; margin: 0;">{escaped_text}</pre>
+</body>
+</html>"""
+        send_email_smtp(recipient_email, subject, html_content, text_content)
         return
 
     order_id = detail.get("order_id", "N/A")
