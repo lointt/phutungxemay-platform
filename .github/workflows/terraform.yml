@@ -101,6 +101,47 @@ jobs:
                       print(f'Warning on {name}: {e}')
           "
 
+      - name: 💰 Setup AWS Cost Anomaly Detection Email Subscription
+        if: |
+          (github.ref == 'refs/heads/main' && github.event_name == 'push') ||
+          (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'apply')
+        run: |
+          python3 -c "
+          import boto3
+          try:
+              ce = boto3.client('ce', region_name='us-east-1')
+              monitors = ce.get_anomaly_monitors().get('AnomalyMonitors', [])
+              if not monitors:
+                  print('No anomaly monitors found in account.')
+              else:
+                  arn = monitors[0]['MonitorArn']
+                  print(f'Found existing anomaly monitor: {arn}')
+                  subs = ce.get_anomaly_subscriptions().get('AnomalySubscriptions', [])
+                  email = 'lointt1199@gmail.com'
+                  has_sub = any(any(s.get('Address') == email for s in sub.get('Subscribers', [])) for sub in subs)
+                  if not has_sub:
+                      ce.create_anomaly_subscription(
+                          AnomalySubscription={
+                              'SubscriptionName': 'CostAnomalyAlert-Replica',
+                              'MonitorArnList': [arn],
+                              'Subscribers': [{'Type': 'EMAIL', 'Address': email}],
+                              'Frequency': 'IMMEDIATE',
+                              'ThresholdExpression': {
+                                  'Dimension': {
+                                      'Key': 'ANOMALY_TOTAL_IMPACT_ABSOLUTE',
+                                      'Values': ['2'],
+                                      'MatchOptions': ['GREATER_THAN_OR_EQUAL']
+                                  }
+                              }
+                          }
+                      )
+                      print(f'Successfully subscribed {email} to Cost Anomaly Detection!')
+                  else:
+                      print(f'{email} is already subscribed to Cost Anomaly Detection.')
+          except Exception as e:
+              print(f'Cost Anomaly Detection setup note: {e}')
+          "
+
       - name: 🔄 Sync Vector KB & Store Policies to S3
         if: |
           (github.ref == 'refs/heads/main' && github.event_name == 'push') ||

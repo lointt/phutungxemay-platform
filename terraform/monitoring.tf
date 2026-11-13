@@ -332,31 +332,3 @@ resource "aws_budgets_budget" "monthly_cost_budget" {
     subscriber_email_addresses = [var.alert_email]
   }
 }
-
-# ==============================================================================
-# 6. AWS COST ANOMALY DETECTION (PHÁT HIỆN ĐỘT BIẾN CHI PHÍ BẰNG AI - ĐỀ XUẤT 2)
-# ==============================================================================
-resource "aws_ce_anomaly_monitor" "service_cost_monitor" {
-  name              = "cost-anomaly-monitor-${var.environment}"
-  monitor_type      = "DIMENSIONAL"
-  monitor_dimension = "SERVICE"
-}
-
-resource "aws_ce_anomaly_subscription" "cost_anomaly_subscription" {
-  name             = "cost-anomaly-alert-${var.environment}"
-  frequency        = "IMMEDIATE"
-  monitor_arn_list = [aws_ce_anomaly_monitor.service_cost_monitor.arn]
-
-  subscriber {
-    type    = "EMAIL"
-    address = var.alert_email
-  }
-
-  threshold_expression {
-    dimension {
-      key           = "ANOMALY_TOTAL_IMPACT_ABSOLUTE"
-      values        = ["2"]
-      match_options = ["GREATER_THAN_OR_EQUAL"]
-    }
-  }
-}
