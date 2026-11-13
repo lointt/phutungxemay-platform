@@ -284,3 +284,79 @@ resource "aws_cloudwatch_dashboard" "ecommerce_dashboard" {
     ]
   })
 }
+
+# ==============================================================================
+# 5. AWS BUDGETS (QUẢN LÝ VÀ CẢNH BÁO HẠN MỨC CHI PHÍ HÀNG THÁNG - ĐỀ XUẤT 1)
+# ==============================================================================
+resource "aws_budgets_budget" "monthly_cost_budget" {
+  name              = "monthly-cost-budget-${var.environment}"
+  budget_type       = "COST"
+  limit_amount      = var.monthly_budget_amount
+  limit_unit        = "USD"
+  time_unit         = "MONTHLY"
+  time_period_start = "2026-01-01_00:00"
+
+  # Cảnh báo 1: 50% chi phí thực tế ($5.0 USD)
+  notification {
+    comparison_operator        = "GREATER_THAN"
+    threshold                  = 50
+    threshold_type             = "PERCENTAGE"
+    notification_type          = "ACTUAL"
+    subscriber_email_addresses = [var.alert_email]
+  }
+
+  # Cảnh báo 2: 80% chi phí thực tế ($8.0 USD)
+  notification {
+    comparison_operator        = "GREATER_THAN"
+    threshold                  = 80
+    threshold_type             = "PERCENTAGE"
+    notification_type          = "ACTUAL"
+    subscriber_email_addresses = [var.alert_email]
+  }
+
+  # Cảnh báo 3: 100% chi phí thực tế ($10.0 USD)
+  notification {
+    comparison_operator        = "GREATER_THAN"
+    threshold                  = 100
+    threshold_type             = "PERCENTAGE"
+    notification_type          = "ACTUAL"
+    subscriber_email_addresses = [var.alert_email]
+  }
+
+  # Cảnh báo 4: Dự báo (Forecasted) chi phí cuối tháng sẽ vượt 100% ngân sách ($10.0 USD)
+  notification {
+    comparison_operator        = "GREATER_THAN"
+    threshold                  = 100
+    threshold_type             = "PERCENTAGE"
+    notification_type          = "FORECASTED"
+    subscriber_email_addresses = [var.alert_email]
+  }
+}
+
+# ==============================================================================
+# 6. AWS COST ANOMALY DETECTION (PHÁT HIỆN ĐỘT BIẾN CHI PHÍ BẰNG AI - ĐỀ XUẤT 2)
+# ==============================================================================
+resource "aws_ce_anomaly_monitor" "service_cost_monitor" {
+  name              = "cost-anomaly-monitor-${var.environment}"
+  monitor_type      = "DIMENSIONAL"
+  monitor_dimension = "SERVICE"
+}
+
+resource "aws_ce_anomaly_subscription" "cost_anomaly_subscription" {
+  name             = "cost-anomaly-alert-${var.environment}"
+  frequency        = "IMMEDIATE"
+  monitor_arn_list = [aws_ce_anomaly_monitor.service_cost_monitor.arn]
+
+  subscriber {
+    type    = "EMAIL"
+    address = var.alert_email
+  }
+
+  threshold_expression {
+    dimension {
+      key           = "ANOMALY_TOTAL_IMPACT_ABSOLUTE"
+      values        = ["2"]
+      match_options = ["GREATER_THAN_OR_EQUAL"]
+    }
+  }
+}

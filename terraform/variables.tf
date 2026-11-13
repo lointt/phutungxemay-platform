@@ -29,9 +29,15 @@ variable "product_images_bucket_name" {
 }
 
 variable "alert_email" {
-  description = "Email quản trị viên nhận thông báo sự cố từ CloudWatch Alarms (SNS)"
+  description = "Email quản trị viên nhận thông báo sự cố từ CloudWatch Alarms & AWS Budgets"
   type        = string
-  default     = ""
+  default     = "lointt1199@gmail.com"
+}
+
+variable "monthly_budget_amount" {
+  description = "Hạn mức ngân sách hàng tháng (USD) cho AWS Budgets"
+  type        = string
+  default     = "10.0"
 }
 
 variable "origin_verify_secret" {
