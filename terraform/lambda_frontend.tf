@@ -83,6 +83,7 @@ resource "aws_lambda_function_url" "nextjs_url" {
 }
 
 # 6. Khóa chặt: Chỉ cấp quyền cho CloudFront Distribution chính chủ gọi Function URL qua SigV4 OAC
+# AWS quy định CloudFront OAC gọi Lambda Function URL cần cả 2 quyền: lambda:InvokeFunctionUrl và lambda:InvokeFunction
 resource "aws_lambda_permission" "allow_cloudfront_function_url" {
   statement_id           = "AllowCloudFrontToInvokeFunctionUrl"
   action                 = "lambda:InvokeFunctionUrl"
@@ -90,6 +91,14 @@ resource "aws_lambda_permission" "allow_cloudfront_function_url" {
   principal              = "cloudfront.amazonaws.com"
   source_arn             = aws_cloudfront_distribution.main.arn
   function_url_auth_type = "AWS_IAM"
+}
+
+resource "aws_lambda_permission" "allow_cloudfront_invoke_function" {
+  statement_id  = "AllowCloudFrontToInvokeFunction"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.nextjs_server.function_name
+  principal     = "cloudfront.amazonaws.com"
+  source_arn    = aws_cloudfront_distribution.main.arn
 }
 
 
