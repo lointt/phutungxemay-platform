@@ -252,20 +252,6 @@ resource "aws_cloudfront_distribution" "main" {
     }
   }
 
-  # Ordered Behavior 4: Chuyển tiếp /handover-submit vào Next.js SSR không qua Cache
-  ordered_cache_behavior {
-    path_pattern     = "/handover-submit"
-    target_origin_id = "NextjsLambdaServerOrigin"
-
-    viewer_protocol_policy     = "redirect-to-https"
-    allowed_methods            = ["GET", "HEAD", "OPTIONS", "PUT", "POST", "PATCH", "DELETE"]
-    cached_methods             = ["GET", "HEAD"]
-    compress                   = true
-    cache_policy_id            = local.managed_caching_disabled_id
-    origin_request_policy_id   = local.managed_all_viewer_except_host_id
-    response_headers_policy_id = local.managed_security_headers_id
-  }
-
   price_class = "PriceClass_100"
 
   restrictions {

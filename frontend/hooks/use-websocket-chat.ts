@@ -407,37 +407,27 @@ export function useWebSocketChat() {
         prev.map((m) => (m.isHandoverForm ? { ...m, handoverSubmitted: true } : m)),
       );
 
-      // 2. Gửi trực tiếp qua HTTP endpoint /handover-submit (đã xác thực hoạt động 100% qua Gmail SMTP)
-      try {
-        await fetch('/handover-submit', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: info.name,
-            phone: info.phone,
-            reason: info.reason,
-            session_id: getSessionId(),
-            user_id: user?.userId || undefined,
-          }),
-        });
-      } catch (err) {
-        console.error('[HANDOVER] Lỗi gửi yêu cầu handover qua /handover-submit:', err);
-      }
-
-      // 3. Phản hồi xác nhận duy nhất cho khách hàng trên giao diện (tránh gửi qua WebSocket để không bị trùng lặp email và tin nhắn)
-      const confirmMsg: ChatMessage = {
-        id: `ai-handover-confirm-${Date.now()}`,
-        role: 'model',
-        content: 'vấn đề của anh/chị đã được gửi đến nhân viên, nhân viên sẽ sớm liên hệ lại trong 24h ạ!',
-        timestamp: Date.now(),
-      };
-      setMessages((prev) => {
-        const last = prev[prev.length - 1];
-        if (last && last.content.toLowerCase().includes('vấn đề của anh/chị đã được gửi đến nhân viên')) {
-          return prev;
+      // 2. Gửi qua WebSocket API theo chuẩn kiến trúc Event-Driven:
+      // Client -> WebSocket API Gateway -> Chat Orchestrator -> EventBridge (HumanHandoverRequested) -> Notification Queue -> Notification Worker (Gmail SMTP)
+      if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+        try {
+          socketRef.current.send(
+            JSON.stringify({
+              action: 'sendMessage',
+              handover_info: {
+                name: info.name,
+                phone: info.phone,
+                reason: info.reason,
+              },
+              question: `Khách hàng yêu cầu nhân viên hỗ trợ: Họ tên: ${info.name}, SĐT: ${info.phone}, Lý do: ${info.reason}`,
+              session_id: getSessionId(),
+              user_id: user?.userId || undefined,
+            }),
+          );
+        } catch (wsErr) {
+          console.warn('[HANDOVER] WebSocket send failed:', wsErr);
         }
-        return [...prev, confirmMsg];
-      });
+      }
     },
     [getSessionId, user?.userId],
   );
