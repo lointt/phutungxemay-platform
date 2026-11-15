@@ -484,6 +484,7 @@ resource "aws_lambda_function" "chat_orchestrator" {
       STORE_POLICIES_TABLE = aws_dynamodb_table.store_policies.name
       VECTOR_BUCKET        = aws_s3_bucket.chatbot_kb.bucket
       EVENT_BUS            = aws_cloudwatch_event_bus.ecommerce_bus.name
+      HANDOVER_COOLDOWN    = "60"
     }
   }
 

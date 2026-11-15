@@ -77,8 +77,8 @@ events_client = boto3.client("events", region_name=REGION)
 EVENT_BUS = os.getenv("EVENT_BUS_NAME") or os.getenv("EVENT_BUS") or "ecommerce-event-bus-replica"
 if not EVENT_BUS or EVENT_BUS == "default":
     EVENT_BUS = "ecommerce-event-bus-replica"
-# Mỗi phiên chỉ gửi 1 yêu cầu chuyển nhân viên trong khoảng này (giây), tránh spam email
-HANDOVER_COOLDOWN = int(os.getenv("HANDOVER_COOLDOWN", "600"))
+# Mỗi phiên chỉ gửi 1 yêu cầu chuyển nhân viên trong khoảng này (giây), tránh spam email (cấu hình 60s để thuận tiện test)
+HANDOVER_COOLDOWN = int(os.getenv("HANDOVER_COOLDOWN", "60"))
 
 SYSTEM_PROMPT = """Bạn là nhân viên tư vấn của cửa hàng phụ tùng xe máy.
 Chỉ trả lời dựa trên phần "Sản phẩm" và "Chính sách" được cung cấp, không tự bịa thông tin.
