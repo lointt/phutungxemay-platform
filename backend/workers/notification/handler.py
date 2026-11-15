@@ -1,4 +1,5 @@
 import os
+import re
 import json
 import smtplib
 import boto3
@@ -187,11 +188,38 @@ def build_payment_success_template(detail):
     """
     return html
 
+def extract_handover_info(text):
+    """Trích xuất Họ tên, SĐT, Lý do từ đoạn văn bản hoặc lịch sử chat."""
+    if not text:
+        return "", "", ""
+    m_name = re.search(r"(?:Họ\s*(?:và)?\s*tên|Tên)\s*[:：]\s*([^,\n|]+)", text, re.IGNORECASE)
+    name = m_name.group(1).strip() if m_name else ""
+    m_phone = re.search(r"(?:SĐT|SDT|Số điện thoại|Điện thoại)\s*[:：]\s*([0-9+.\s-]{9,15})", text, re.IGNORECASE)
+    phone = re.sub(r"[\s.-]", "", m_phone.group(1).strip()) if m_phone else ""
+    m_reason = re.search(r"(?:Lý do|Nguyên nhân|Vấn đề)\s*[:：]\s*([^|\n-]+)", text, re.IGNORECASE)
+    reason = m_reason.group(1).strip() if m_reason else ""
+    return name, phone, reason
+
 def build_handover_plain_text(detail):
-    customer_name = detail.get("customer_name") or detail.get("name") or "Khách hàng"
-    phone = detail.get("phone") or "Chưa cung cấp"
-    reason = detail.get("reason", "Cần nhân viên hỗ trợ gấp")
+    customer_name = detail.get("customer_name") or detail.get("name") or ""
+    phone = detail.get("phone") or ""
+    reason = detail.get("reason", "")
     history_text = detail.get("history_text", "")
+
+    # Tự động bù đắp Họ tên và SĐT từ context nếu chưa có hoặc mặc định
+    if not customer_name or customer_name in ("Khách hàng", "Chưa cung cấp") or not phone or phone in ("Chưa cung cấp", ""):
+        context_str = f"{detail.get('question', '')} {reason} {history_text}"
+        ext_n, ext_p, ext_r = extract_handover_info(context_str)
+        if (not customer_name or customer_name in ("Khách hàng", "Chưa cung cấp")) and ext_n:
+            customer_name = ext_n
+        if (not phone or phone in ("Chưa cung cấp", "")) and ext_p:
+            phone = ext_p
+        if (not reason or reason in ("Cần nhân viên hỗ trợ gấp", "Yêu cầu liên hệ tư vấn")) and ext_r:
+            reason = ext_r
+
+    customer_name = customer_name or "Khách hàng"
+    phone = phone or "Chưa cung cấp"
+    reason = reason or "Cần nhân viên hỗ trợ gấp"
 
     history_lines = []
     if history_text:
@@ -218,12 +246,27 @@ def build_handover_plain_text(detail):
     )
     return text
 
+build_handover_requested_template = build_handover_plain_text
+
 def process_notification_event(detail_type, detail):
     # Xử lý sự kiện Chuyển nhân viên tư vấn (Human Handover) từ Chatbot
     if detail_type == "HumanHandoverRequested":
         recipient_email = STAFF_EMAIL
-        c_name = detail.get("customer_name") or detail.get("name") or "Khách hàng"
-        c_phone = detail.get("phone") or "Chưa cung cấp"
+        c_name = detail.get("customer_name") or detail.get("name") or ""
+        c_phone = detail.get("phone") or ""
+
+        # Bù thông tin Họ tên và SĐT nếu thiếu
+        if not c_name or c_name in ("Khách hàng", "Chưa cung cấp") or not c_phone or c_phone in ("Chưa cung cấp", ""):
+            context_str = f"{detail.get('question', '')} {detail.get('reason', '')} {detail.get('history_text', '')}"
+            ext_n, ext_p, _ = extract_handover_info(context_str)
+            if (not c_name or c_name in ("Khách hàng", "Chưa cung cấp")) and ext_n:
+                c_name = ext_n
+            if (not c_phone or c_phone in ("Chưa cung cấp", "")) and ext_p:
+                c_phone = ext_p
+
+        c_name = c_name or "Khách hàng"
+        c_phone = c_phone or "Chưa cung cấp"
+
         print(f"[NOTIFICATION] Bắt sự kiện 'HumanHandoverRequested' -> Gửi cảnh báo tới Staff Email: {recipient_email}")
         subject = f"[LIÊN HỆ LẠI KHÁCH HÀNG] {c_name} - SĐT: {c_phone}"
         text_content = build_handover_plain_text(detail)

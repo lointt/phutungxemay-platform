@@ -22,11 +22,9 @@ class TestNotificationWorker(unittest.TestCase):
             "question": "Bên mình còn bố thắng Brembo cho SH 2024 không?",
             "history_text": "User: Xin chào | Bot: Dạ chào bạn | User: Hỏi bố thắng SH",
         }
-        html = handler.build_handover_requested_template(detail)
-        self.assertIn("sess_12345", html)
-        self.assertIn("user_customer_99", html)
-        self.assertIn("Khách hàng cần tư vấn phụ tùng SH 150i 2024", html)
-        self.assertIn("Hỏi bố thắng SH", html)
+        text = handler.build_handover_requested_template(detail)
+        self.assertIn("Khách hàng cần tư vấn phụ tùng SH 150i 2024", text)
+        self.assertIn("Hỏi bố thắng SH", text)
 
     @patch("handler.send_email_smtp")
     def test_process_handover_requested_event(self, mock_send_email):

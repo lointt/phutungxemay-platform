@@ -107,7 +107,8 @@ Quy tắc chuyển nhân viên:
 - Gọi request_human_agent khi khách muốn gặp nhân viên hoặc người thật, khiếu nại, tỏ ra bực bức,
   hoặc vấn đề mình không thể giải quyết bằng dữ liệu hiện có (ví dụ lỗi đơn hàng, yêu cầu bảo hành).
 - Truyền lý do (reason), họ tên (customer_name) và số điện thoại (phone) nếu khách đã cung cấp.
-- Sau khi gọi, luôn trả lời khách: "Vấn đề của anh/chị đã được gửi đến nhân viên, nhân viên sẽ sớm liên hệ lại trong 24h ạ!"
+- Sau khi gọi, luôn trả lời khách đúng một câu: "Vấn đề của anh/chị đã được gửi đến nhân viên, nhân viên sẽ sớm liên hệ lại trong 24h ạ!"
+- TUYỆT ĐỐI KHÔNG sinh ra hoặc nhắc đến mã yêu cầu, mã hỗ trợ, ticket ID (ví dụ: HO_...) cho khách hàng.
 """
 
 _model_down = {}      # Ngắt mạch Gemini: tên model -> thời điểm (epoch) được thử lại. Lưu theo từng instance Lambda.
@@ -306,18 +307,41 @@ def claim_handover(session_id):
         raise
 
 
+def extract_handover_info(text):
+    """Trích xuất Họ tên, SĐT, Lý do từ câu hỏi hoặc lịch sử hội thoại."""
+    if not text:
+        return "", "", ""
+    m_name = re.search(r"(?:Họ\s*(?:và)?\s*tên|Tên)\s*[:：]\s*([^,\n|]+)", text, re.IGNORECASE)
+    name = m_name.group(1).strip() if m_name else ""
+    m_phone = re.search(r"(?:SĐT|SDT|Số điện thoại|Điện thoại)\s*[:：]\s*([0-9+.\s-]{9,15})", text, re.IGNORECASE)
+    phone = re.sub(r"[\s.-]", "", m_phone.group(1).strip()) if m_phone else ""
+    m_reason = re.search(r"(?:Lý do|Nguyên nhân|Vấn đề)\s*[:：]\s*([^|\n-]+)", text, re.IGNORECASE)
+    reason = m_reason.group(1).strip() if m_reason else ""
+    return name, phone, reason
+
+
 def notify_handover(session_id, user_id, question, reason, customer_name=None, phone=None, force=False):
     """Phát sự kiện HumanHandoverRequested. Trả về ticket_id, hoặc None nếu đã gửi gần đây."""
     if not force and not claim_handover(session_id):
         return None
     ticket_id = "HO_" + time.strftime("%Y%m%d%H%M%S", time.gmtime()) + "_" + os.urandom(2).hex()
 
+    history_text = " | ".join(load_history(session_id))[-1500:]
+
+    # Tự động trích xuất Họ tên & SĐT từ context nếu tham số bị rỗng
+    if not phone or str(phone).strip() in ("", "Chưa cung cấp") or not customer_name:
+        ext_n, ext_p, ext_r = extract_handover_info(f"{question} {history_text}")
+        if not customer_name and ext_n:
+            customer_name = ext_n
+        if (not phone or str(phone).strip() in ("", "Chưa cung cấp")) and ext_p:
+            phone = ext_p
+        if (not reason or reason in ("Yêu cầu liên hệ tư vấn", "Cần nhân viên hỗ trợ")) and ext_r:
+            reason = ext_r
+
     # Chỉ gửi email khi có SĐT khách hàng hợp lệ (tránh gửi email rác 'Chưa cung cấp')
     if not phone or str(phone).strip() in ("", "Chưa cung cấp"):
         print(f"[HANDOVER] Bỏ qua phát sự kiện email vì không có SĐT: name={customer_name}, phone={phone}")
         return ticket_id
-
-    history_text = " | ".join(load_history(session_id))[-1500:]
     detail = {
         "ticket_id": ticket_id,
         "session_id": session_id,
@@ -622,6 +646,13 @@ def make_handover_tools(session_id, user_id, question, state):
             customer_name: Tên của khách hàng (nếu khách cung cấp).
             phone: Số điện thoại của khách hàng (nếu khách cung cấp).
         """
+        if not customer_name or not phone:
+            ext_n, ext_p, ext_r = extract_handover_info(question)
+            customer_name = customer_name or ext_n
+            phone = phone or ext_p
+            if ext_r and (not reason or reason in ("Yêu cầu liên hệ tư vấn", "Cần nhân viên hỗ trợ")):
+                reason = ext_r
+
         try:
             ticket = notify_handover(session_id, user_id, question, reason[:300], customer_name, phone)
         except ClientError as exc:
@@ -630,7 +661,7 @@ def make_handover_tools(session_id, user_id, question, state):
         if ticket is None:
             return {"ok": True, "already_requested": True}
         state["handover_ticket"] = ticket
-        return {"ok": True, "ticket_id": ticket, "message": "Vấn đề của anh/chị đã được gửi đến nhân viên, nhân viên sẽ sớm liên hệ lại trong 24h ạ!"}
+        return {"ok": True, "message": "Vấn đề của anh/chị đã được gửi đến nhân viên, nhân viên sẽ sớm liên hệ lại trong 24h ạ!"}
 
     return [request_human_agent]
 
@@ -796,12 +827,23 @@ def _handle(event, context):
         )
 
     # 0. Fast-path: Khách gửi form yêu cầu liên hệ nhân viên (Tên + SĐT + Lý do)
-    if body.get("action") == "requestHandover" or body.get("handover_info"):
-        h_info = body.get("handover_info", {})
+    is_handover_call = (
+        body.get("action") in ("requestHandover", "handover")
+        or body.get("handover_info")
+        or (question and ("yêu cầu nhân viên hỗ trợ" in question.lower() or "liên hệ nhân viên" in question.lower()) and ("sđt" in question.lower() or "sdt" in question.lower()))
+    )
+    if is_handover_call:
+        h_info = body.get("handover_info") or {}
         c_name = h_info.get("name") or h_info.get("customer_name") or body.get("customer_name") or ""
         c_phone = h_info.get("phone") or body.get("phone") or ""
-        c_reason = h_info.get("reason") or body.get("reason") or question or "Yêu cầu liên hệ tư vấn"
-        ticket = notify_handover(session_id, user_id, question or c_reason, c_reason, c_name, c_phone, force=True)
+        c_reason = h_info.get("reason") or body.get("reason") or ""
+        if not c_name or not c_phone:
+            ext_n, ext_p, ext_r = extract_handover_info(question)
+            c_name = c_name or ext_n
+            c_phone = c_phone or ext_p
+            c_reason = c_reason or ext_r or question
+
+        notify_handover(session_id, user_id, question or c_reason, c_reason or "Yêu cầu hỗ trợ", c_name, c_phone, force=True)
         answer = "vấn đề của anh/chị đã được gửi đến nhân viên, nhân viên sẽ sớm liên hệ lại trong 24h ạ!"
         past = load_history(session_id)
         past.extend([f"Khách: Khách hàng yêu cầu nhân viên hỗ trợ: Họ tên: {c_name}, SĐT: {c_phone}, Lý do: {c_reason}", f"Bot: {answer}"])
@@ -811,7 +853,6 @@ def _handle(event, context):
             "sources": [],
             "products": [],
             "handover_success": True,
-            "handover_ticket": ticket,
         })
         return {"statusCode": 200, "body": "ok"}
 
@@ -888,8 +929,8 @@ def _handle(event, context):
                       "tra giá và tồn kho, giỏ hàng và các chính sách của cửa hàng (đổi trả, bảo hành, vận chuyển). "
                       "Nếu bạn cần nhân viên hỗ trợ, hãy nhắn \"gặp nhân viên\" nhé.")
         elif ticket:
-            answer = (f"Mình chưa thấy nội dung này trong dữ liệu hiện có nên đã chuyển câu hỏi của bạn "
-                      f"cho nhân viên (mã yêu cầu {ticket}). Nhân viên sẽ phản hồi sớm.")
+            answer = ("Mình chưa thấy nội dung này trong dữ liệu hiện có và đã chuyển yêu cầu "
+                      "cho nhân viên hỗ trợ. Nhân viên sẽ sớm liên hệ lại với bạn trong 24h nhé!")
         else:
             answer = ("Mình chưa thấy nội dung này trong dữ liệu hiện có. Yêu cầu của bạn đã được chuyển "
                       "cho nhân viên trước đó, vui lòng chờ phản hồi hoặc liên hệ hotline CSKH.")
