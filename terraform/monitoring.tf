@@ -347,3 +347,14 @@ resource "aws_accessanalyzer_analyzer" "account_access_analyzer" {
     Project     = "MotorcyclePartsEcommerce"
   }
 }
+
+# Tự động Archive finding cho NextjsServerHandler (vì đây là Web Public SSR có chủ ý)
+resource "aws_accessanalyzer_archive_rule" "allow_public_nextjs_ssr" {
+  analyzer_name = aws_accessanalyzer_analyzer.account_access_analyzer.analyzer_name
+  rule_name     = "AllowPublicNextjsSSR"
+
+  filter {
+    criteria = "resource"
+    eq       = [aws_lambda_function.nextjs_server.arn]
+  }
+}
