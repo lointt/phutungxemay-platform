@@ -332,3 +332,18 @@ resource "aws_budgets_budget" "monthly_cost_budget" {
     subscriber_email_addresses = [var.alert_email]
   }
 }
+
+# ==============================================================================
+# 6. AWS IAM ACCESS ANALYZER (PHÂN TÍCH VÀ PHÁT HIỆN LỖ HỔNG TRUY CẬP MIỄN PHÍ)
+# ==============================================================================
+resource "aws_accessanalyzer_analyzer" "account_access_analyzer" {
+  analyzer_name = "account-access-analyzer-${var.environment}"
+  type          = "ACCOUNT"
+
+  tags = {
+    Name        = "account-access-analyzer-${var.environment}"
+    Environment = var.environment
+    ManagedBy   = "Terraform"
+    Project     = "MotorcyclePartsEcommerce"
+  }
+}
