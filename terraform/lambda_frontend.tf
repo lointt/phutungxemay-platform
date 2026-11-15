@@ -75,20 +75,21 @@ resource "aws_lambda_function" "nextjs_server" {
   }
 }
 
-# 5. Lambda Function URL hỗ trợ Streaming SSR
+# 5. Lambda Function URL hỗ trợ Streaming SSR (Bảo mật bằng AWS_IAM, chỉ CloudFront OAC được gọi)
 resource "aws_lambda_function_url" "nextjs_url" {
   function_name      = aws_lambda_function.nextjs_server.function_name
-  authorization_type = "NONE"
+  authorization_type = "AWS_IAM"
   invoke_mode        = "RESPONSE_STREAM"
 }
 
-# 6. Cấp quyền truy cập công khai cho Function URL (gọi URL)
-resource "aws_lambda_permission" "allow_public_function_url" {
-  statement_id           = "FunctionURLAllowPublicAccess"
+# 6. Khóa chặt: Chỉ cấp quyền cho CloudFront Distribution chính chủ gọi Function URL qua SigV4 OAC
+resource "aws_lambda_permission" "allow_cloudfront_function_url" {
+  statement_id           = "AllowCloudFrontToInvokeFunctionUrl"
   action                 = "lambda:InvokeFunctionUrl"
   function_name          = aws_lambda_function.nextjs_server.function_name
-  principal              = "*"
-  function_url_auth_type = "NONE"
+  principal              = "cloudfront.amazonaws.com"
+  source_arn             = aws_cloudfront_distribution.main.arn
+  function_url_auth_type = "AWS_IAM"
 }
 
 

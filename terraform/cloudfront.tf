@@ -119,6 +119,15 @@ resource "aws_cloudfront_cache_policy" "nextjs_smart_cache" {
   }
 }
 
+# CloudFront Origin Access Control (OAC) cho Lambda Next.js Function URL (Khóa chặt chỉ CloudFront được gọi)
+resource "aws_cloudfront_origin_access_control" "nextjs_lambda_oac" {
+  name                              = "nextjs-lambda-oac-${var.environment}"
+  description                       = "OAC cho Nextjs Lambda Function URL de khoa chat bao mat"
+  origin_access_control_origin_type = "lambda"
+  signing_behavior                  = "always"
+  signing_protocol                  = "sigv4"
+}
+
 # 3. CloudFront Distribution chính
 resource "aws_cloudfront_distribution" "main" {
   enabled             = true
@@ -126,10 +135,11 @@ resource "aws_cloudfront_distribution" "main" {
   comment             = "CloudFront Distribution cho Frontend & Backend (${var.environment})"
   default_root_object = ""
 
-  # Origin 1: Lambda Next.js Server Function URL (SSR Streaming)
+  # Origin 1: Lambda Next.js Server Function URL (SSR Streaming - Khóa bằng OAC)
   origin {
-    domain_name = local.lambda_url_domain
-    origin_id   = "NextjsLambdaServerOrigin"
+    domain_name              = local.lambda_url_domain
+    origin_id                = "NextjsLambdaServerOrigin"
+    origin_access_control_id = aws_cloudfront_origin_access_control.nextjs_lambda_oac.id
 
     custom_origin_config {
       http_port              = 80
