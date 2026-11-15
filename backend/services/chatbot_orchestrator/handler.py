@@ -74,7 +74,9 @@ users_table = dynamodb.Table(USERS_TABLE)
 cart_table = dynamodb.Table(CARTS_TABLE)
 products_table = dynamodb.Table(PRODUCTS_TABLE)
 events_client = boto3.client("events", region_name=REGION)
-EVENT_BUS = os.getenv("EVENT_BUS", "default")
+EVENT_BUS = os.getenv("EVENT_BUS_NAME") or os.getenv("EVENT_BUS") or "ecommerce-event-bus-replica"
+if not EVENT_BUS or EVENT_BUS == "default":
+    EVENT_BUS = "ecommerce-event-bus-replica"
 # Mỗi phiên chỉ gửi 1 yêu cầu chuyển nhân viên trong khoảng này (giây), tránh spam email
 HANDOVER_COOLDOWN = int(os.getenv("HANDOVER_COOLDOWN", "600"))
 
@@ -326,7 +328,9 @@ def notify_handover(session_id, user_id, question, reason, customer_name=None, p
         "question": question,
         "history_text": history_text,
     }
-    bus_name = EVENT_BUS or os.getenv("EVENT_BUS_NAME", "ecommerce-event-bus-replica")
+    bus_name = EVENT_BUS or "ecommerce-event-bus-replica"
+    if bus_name == "default":
+        bus_name = "ecommerce-event-bus-replica"
     try:
         events_client.put_events(Entries=[{
             "Source": "chatbot.orchestrator",
@@ -336,16 +340,7 @@ def notify_handover(session_id, user_id, question, reason, customer_name=None, p
         }])
         print(f"Handover event emitted to {bus_name}:", ticket_id, reason, customer_name, phone)
     except Exception as exc:
-        print(f"[WARN] Lỗi khi put_events tới {bus_name}: {exc}, thử gửi tới default bus")
-        try:
-            events_client.put_events(Entries=[{
-                "Source": "chatbot.orchestrator",
-                "DetailType": "HumanHandoverRequested",
-                "Detail": json.dumps(detail, ensure_ascii=False),
-                "EventBusName": "default",
-            }])
-        except Exception as exc2:
-            print(f"[ERROR] Lỗi gửi default bus: {exc2}")
+        print(f"[WARN] Lỗi khi put_events tới {bus_name}: {exc}")
 
     return ticket_id
 
