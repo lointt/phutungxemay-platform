@@ -11,76 +11,122 @@ locals {
   cf_func_name                      = "strip-api-prefix-${var.environment}"
 }
 
-# 1. CloudFront Function: Edge WAF (Bảo vệ XSS, SQL Injection, Path Traversal)
+# 1. CloudFront Function: Advanced Edge WAF (Bảo vệ XSS, SQLi, Path Traversal, Probe & Scanner)
 resource "aws_cloudfront_function" "edge_waf" {
   name    = "edge-waf-filter"
   runtime = "cloudfront-js-2.0"
-  comment = "Edge WAF: Ngan chan cac cuoc tan cong XSS, SQL Injection, Path Traversal"
+  comment = "Advanced Edge WAF: Chan XSS, SQL Injection, Path Traversal, Sensitive Probe va Scanner Tools"
   publish = true
   code    = <<-EOF
     function handler(event) {
         var request = event.request;
-        var qsString = "";
         
+        function safeDecode(str) {
+            try { return decodeURIComponent(str); } catch (e) { return str; }
+        }
+        function normalize(str) {
+            if (!str) return '';
+            var d = safeDecode(safeDecode(str)).toLowerCase();
+            return d.replace(/\/\*[\s\S]*?\*\//g, ' ');
+        }
+
+        var XSS_REGEX = /<(\/?\s*(script|iframe|object|embed|svg|style|base|form|input|button|link|meta))\b|\bon(error|load|click|mouseover|submit|focus|blur|change|input)\s*=|(javascript|vbscript|data:text\/html)\s*:|\b(alert|prompt|confirm|eval)\s*\(|\bdocument\.cookie\b/i;
+        var SQLI_REGEX = /\bunion\s+(?:all\s+)?select\b|\bselect\b[\s\S]*?\bfrom\b|\b(?:insert\s+into|drop\s+table|delete\s+from)\b|\bupdate\b[\s\S]*?\bset\b|\bor\s+(['"]?[\d\w]+['"]?)\s*=\s*\1(?:\b|\s|$)|\b(?:sleep|benchmark|delay)\s*\(|\binformation_schema\b|;+\s*(?:--|#|\/\*)/i;
+        var PATH_REGEX = /\.\.[\/\\]|(\/|^)\.(env|git|aws|config|docker|svn|vscode)($|[\/\s\?#])|(\/|^)(etc\/(passwd|shadow)|boot\.ini|win\.ini)($|[\/\s\?#])|(\/|^)wp-(admin|login|content|config)|xmlrpc\.php/i;
+        var BAD_UA_REGEX = /\b(sqlmap|nikto|acunetix|nessus|openvas|dirbuster|gobuster|masscan|wpscan|nmap|zgrab)\b/i;
+
+        var qsString = "";
         if (request.querystring) {
             var keys = Object.keys(request.querystring);
             for (var i = 0; i < keys.length; i++) {
                 var k = keys[i];
                 if (request.querystring[k] && request.querystring[k].value) {
-                    qsString += " " + request.querystring[k].value.toLowerCase();
+                    qsString += " " + k + "=" + request.querystring[k].value;
                 }
             }
         }
-        
-        var fullScan = request.uri.toLowerCase() + qsString;
-        
-        if (fullScan.indexOf("<script") !== -1 || fullScan.indexOf("%3cscript") !== -1 ||
-            fullScan.indexOf("union select") !== -1 || fullScan.indexOf("union%20select") !== -1 ||
-            fullScan.indexOf("or 1=1") !== -1 || fullScan.indexOf("or%201%3d1") !== -1 ||
-            fullScan.indexOf("../") !== -1 || fullScan.indexOf("..%2f") !== -1) {
-            
+
+        var ua = "";
+        if (request.headers && request.headers["user-agent"] && request.headers["user-agent"].value) {
+            ua = request.headers["user-agent"].value;
+        }
+
+        var fullScan = normalize(request.uri + " " + qsString);
+
+        if (BAD_UA_REGEX.test(ua) || XSS_REGEX.test(fullScan) || SQLI_REGEX.test(fullScan) || PATH_REGEX.test(fullScan)) {
             return {
                 statusCode: 403,
-                statusDescription: "Forbidden - Blocked by Edge WAF"
+                statusDescription: "Forbidden - Blocked by Edge WAF",
+                headers: {
+                    "content-type": { value: "text/plain; charset=utf-8" },
+                    "x-blocked-by": { value: "Advanced-Edge-WAF" }
+                },
+                body: {
+                    encoding: "text",
+                    data: "Access Denied: Request blocked by Advanced Edge WAF security filter."
+                }
             };
         }
-        
+
         return request;
     }
   EOF
 }
 
-# 2. CloudFront Function: Edge WAF & Cắt bỏ tiền tố /api trước khi chuyển tới API Gateway
+# 2. CloudFront Function: Advanced Edge WAF & Cắt bỏ tiền tố /api trước khi chuyển tới API Gateway
 resource "aws_cloudfront_function" "strip_api_prefix" {
   name    = local.cf_func_name
   runtime = "cloudfront-js-2.0"
-  comment = "Edge WAF & Cat bo tien to /api truoc khi chuyen tiep toi API Gateway REST"
+  comment = "Advanced Edge WAF & Cat bo tien to /api truoc khi chuyen tiep toi API Gateway REST"
   publish = true
   code    = <<-EOF
     function handler(event) {
         var request = event.request;
-        var qsString = "";
         
+        function safeDecode(str) {
+            try { return decodeURIComponent(str); } catch (e) { return str; }
+        }
+        function normalize(str) {
+            if (!str) return '';
+            var d = safeDecode(safeDecode(str)).toLowerCase();
+            return d.replace(/\/\*[\s\S]*?\*\//g, ' ');
+        }
+
+        var XSS_REGEX = /<(\/?\s*(script|iframe|object|embed|svg|style|base|form|input|button|link|meta))\b|\bon(error|load|click|mouseover|submit|focus|blur|change|input)\s*=|(javascript|vbscript|data:text\/html)\s*:|\b(alert|prompt|confirm|eval)\s*\(|\bdocument\.cookie\b/i;
+        var SQLI_REGEX = /\bunion\s+(?:all\s+)?select\b|\bselect\b[\s\S]*?\bfrom\b|\b(?:insert\s+into|drop\s+table|delete\s+from)\b|\bupdate\b[\s\S]*?\bset\b|\bor\s+(['"]?[\d\w]+['"]?)\s*=\s*\1(?:\b|\s|$)|\b(?:sleep|benchmark|delay)\s*\(|\binformation_schema\b|;+\s*(?:--|#|\/\*)/i;
+        var PATH_REGEX = /\.\.[\/\\]|(\/|^)\.(env|git|aws|config|docker|svn|vscode)($|[\/\s\?#])|(\/|^)(etc\/(passwd|shadow)|boot\.ini|win\.ini)($|[\/\s\?#])|(\/|^)wp-(admin|login|content|config)|xmlrpc\.php/i;
+        var BAD_UA_REGEX = /\b(sqlmap|nikto|acunetix|nessus|openvas|dirbuster|gobuster|masscan|wpscan|nmap|zgrab)\b/i;
+
+        var qsString = "";
         if (request.querystring) {
             var keys = Object.keys(request.querystring);
             for (var i = 0; i < keys.length; i++) {
                 var k = keys[i];
                 if (request.querystring[k] && request.querystring[k].value) {
-                    qsString += " " + request.querystring[k].value.toLowerCase();
+                    qsString += " " + k + "=" + request.querystring[k].value;
                 }
             }
         }
-        
-        var fullScan = request.uri.toLowerCase() + qsString;
-        
-        if (fullScan.indexOf("<script") !== -1 || fullScan.indexOf("%3cscript") !== -1 ||
-            fullScan.indexOf("union select") !== -1 || fullScan.indexOf("union%20select") !== -1 ||
-            fullScan.indexOf("or 1=1") !== -1 || fullScan.indexOf("or%201%3d1") !== -1 ||
-            fullScan.indexOf("../") !== -1 || fullScan.indexOf("..%2f") !== -1) {
-            
+
+        var ua = "";
+        if (request.headers && request.headers["user-agent"] && request.headers["user-agent"].value) {
+            ua = request.headers["user-agent"].value;
+        }
+
+        var fullScan = normalize(request.uri + " " + qsString);
+
+        if (BAD_UA_REGEX.test(ua) || XSS_REGEX.test(fullScan) || SQLI_REGEX.test(fullScan) || PATH_REGEX.test(fullScan)) {
             return {
                 statusCode: 403,
-                statusDescription: "Forbidden - Blocked by Edge WAF"
+                statusDescription: "Forbidden - Blocked by Edge WAF",
+                headers: {
+                    "content-type": { value: "text/plain; charset=utf-8" },
+                    "x-blocked-by": { value: "Advanced-Edge-WAF" }
+                },
+                body: {
+                    encoding: "text",
+                    data: "Access Denied: Request blocked by Advanced Edge WAF security filter."
+                }
             };
         }
 
