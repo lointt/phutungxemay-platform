@@ -105,7 +105,7 @@ const KNOWLEDGE_BASE: {
 ];
 
 export function useWebSocketChat() {
-  const { user } = useAuth();
+  const { user, idToken } = useAuth();
 
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('CONNECTING');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -215,7 +215,11 @@ export function useWebSocketChat() {
 
     try {
       setConnectionStatus('CONNECTING');
-      const ws = new WebSocket(WS_URL);
+
+      // Gửi JWT Token từ Cognito nếu đã đăng nhập, hoặc 'guest' nếu là khách vãng lai
+      const tokenParam = idToken ? encodeURIComponent(idToken) : 'guest';
+      const wsUrlWithAuth = `${WS_URL}${WS_URL.includes('?') ? '&' : '?'}token=${tokenParam}`;
+      const ws = new WebSocket(wsUrlWithAuth);
       socketRef.current = ws;
 
       ws.onopen = () => {
@@ -380,7 +384,7 @@ export function useWebSocketChat() {
     } catch {
       setConnectionStatus('DISCONNECTED');
     }
-  }, [safelyCloseOldSocket]);
+  }, [safelyCloseOldSocket, idToken]);
 
   useEffect(() => {
     isManuallyClosedRef.current = false;
@@ -392,12 +396,12 @@ export function useWebSocketChat() {
     };
   }, [connectWebSocket, safelyCloseOldSocket]);
 
-  // Khi tài khoản đăng nhập thay đổi, làm mới kết nối socket để gửi đúng session_id mới
+  // Khi tài khoản đăng nhập hoặc JWT thay đổi, làm mới kết nối socket để gửi đúng token & session mới
   useEffect(() => {
     if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
       connectWebSocket();
     }
-  }, [user?.userId, connectWebSocket]);
+  }, [user?.userId, idToken, connectWebSocket]);
 
   // Gửi yêu cầu chuyển tiếp nhân viên kèm thông tin khách cung cấp
   const sendHandoverRequest = useCallback(

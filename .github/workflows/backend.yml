@@ -144,6 +144,19 @@ jobs:
           mkdir -p /tmp/genai_pkg
           pip install google-genai -t /tmp/genai_pkg/ --platform manylinux2014_x86_64 --only-binary=:all:
 
+      - name: 📦 Package & Deploy ChatAuthorizerHandler
+        run: |
+          cd backend/services/chatbot_authorizer
+          rm -rf build authorizer.zip
+          mkdir -p build
+          pip install PyJWT cryptography -t build/ --platform manylinux2014_x86_64 --only-binary=:all:
+          cp handler.py build/lambda_function.py
+          cd build && zip -rq ../authorizer.zip . && cd ..
+          aws lambda update-function-code \
+            --function-name ChatAuthorizerHandler-${{ vars.AWS_ENVIRONMENT_TITLE || secrets.AWS_ENVIRONMENT_TITLE || 'Replica' }} \
+            --zip-file fileb://authorizer.zip || true
+          cd ../../..
+
       - name: 📦 Package & Deploy ChatReceiverHandler
         run: |
           cd backend/services/chatbot_receiver

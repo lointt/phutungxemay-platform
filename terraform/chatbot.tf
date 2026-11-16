@@ -94,10 +94,20 @@ resource "aws_apigatewayv2_integration" "chat_receiver_integration" {
   integration_uri  = aws_lambda_function.chat_receiver.invoke_arn
 }
 
+resource "aws_apigatewayv2_authorizer" "chatbot_ws_authorizer" {
+  api_id           = aws_apigatewayv2_api.chatbot_ws.id
+  authorizer_type  = "REQUEST"
+  authorizer_uri   = aws_lambda_function.chat_authorizer.invoke_arn
+  name             = "CognitoWebSocketAuthorizer-${local.env_title}"
+  identity_sources = ["route.request.querystring.token"]
+}
+
 resource "aws_apigatewayv2_route" "connect_route" {
-  api_id    = aws_apigatewayv2_api.chatbot_ws.id
-  route_key = "$connect"
-  target    = "integrations/${aws_apigatewayv2_integration.chat_receiver_integration.id}"
+  api_id             = aws_apigatewayv2_api.chatbot_ws.id
+  route_key          = "$connect"
+  target             = "integrations/${aws_apigatewayv2_integration.chat_receiver_integration.id}"
+  authorization_type = "CUSTOM"
+  authorizer_id      = aws_apigatewayv2_authorizer.chatbot_ws_authorizer.id
 }
 
 resource "aws_apigatewayv2_route" "disconnect_route" {
@@ -137,9 +147,56 @@ resource "aws_lambda_permission" "api_invoke_receiver" {
   source_arn    = "${aws_apigatewayv2_api.chatbot_ws.execution_arn}/*/*"
 }
 
+resource "aws_lambda_permission" "api_invoke_authorizer" {
+  statement_id  = "AllowExecutionFromApiGatewayWebSocketAuthorizer"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.chat_authorizer.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_apigatewayv2_api.chatbot_ws.execution_arn}/*"
+}
+
 # ==============================================================================
 # 3. IAM ROLES CHO CÁC HÀM LAMBDA CHATBOT & DATA SYNC
 # ==============================================================================
+
+# Role cho Chat Authorizer (Xác thực JWT Cognito ở $connect)
+resource "aws_iam_role" "chatbot_authorizer_role" {
+  name = "ChatbotAuthorizer-ExecutionRole-${local.env_title}"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "lambda.amazonaws.com"
+        }
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy" "chatbot_authorizer_policy" {
+  name = "ChatbotAuthorizerPolicy"
+  role = aws_iam_role.chatbot_authorizer_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "CloudWatchLogs"
+        Effect = "Allow"
+        Action = [
+          "logs:CreateLogGroup",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents"
+        ]
+        Resource = "arn:aws:logs:*:*:*"
+      }
+    ]
+  })
+}
 
 # Role cho Chat Receiver (Nhẹ, chỉ cần log + invoke orchestrator)
 resource "aws_iam_role" "chatbot_receiver_role" {
@@ -420,6 +477,15 @@ resource "aws_sqs_queue" "sync_dlq" {
 # ==============================================================================
 # 4. PACKAGING SOURCE CODE CHO CÁC HÀM LAMBDA
 # ==============================================================================
+data "archive_file" "chat_authorizer_zip" {
+  type        = "zip"
+  output_path = "${path.module}/chat_authorizer.zip"
+  source {
+    content  = file("${path.module}/../backend/services/chatbot_authorizer/handler.py")
+    filename = "lambda_function.py"
+  }
+}
+
 data "archive_file" "chat_receiver_zip" {
   type        = "zip"
   output_path = "${path.module}/chat_receiver.zip"
@@ -450,6 +516,36 @@ data "archive_file" "sync_to_kb_zip" {
 # ==============================================================================
 # 5. KHAI BÁO CÁC HÀM LAMBDA (RUNTIME PYTHON 3.12, ZIP PACKAGING - BỎ DOCKER)
 # ==============================================================================
+
+# Lambda 0: Chat Authorizer (Xác thực JWT Cognito ở $connect)
+resource "aws_lambda_function" "chat_authorizer" {
+  function_name    = "ChatAuthorizerHandler-${local.env_title}"
+  role             = aws_iam_role.chatbot_authorizer_role.arn
+  runtime          = "python3.12"
+  handler          = "lambda_function.lambda_handler"
+  memory_size      = 256
+  timeout          = 10
+  filename         = data.archive_file.chat_authorizer_zip.output_path
+  source_code_hash = data.archive_file.chat_authorizer_zip.output_base64sha256
+
+  lifecycle {
+    ignore_changes = [filename, source_code_hash]
+  }
+
+  environment {
+    variables = {
+      COGNITO_USER_POOL_ID = aws_cognito_user_pool.pool.id
+      COGNITO_CLIENT_ID    = aws_cognito_user_pool_client.client.id
+      ALLOW_GUEST          = "1"
+      USER_ID_CLAIM        = "sub"
+    }
+  }
+
+  tags = {
+    Name        = "ChatAuthorizerHandler-${local.env_title}"
+    Environment = var.environment
+  }
+}
 
 # Lambda 1: Chat Receiver (Dispatcher)
 resource "aws_lambda_function" "chat_receiver" {
@@ -505,6 +601,7 @@ resource "aws_lambda_function" "chat_orchestrator" {
       VECTOR_BUCKET        = aws_s3_bucket.chatbot_kb.bucket
       EVENT_BUS            = aws_cloudwatch_event_bus.ecommerce_bus.name
       HANDOVER_COOLDOWN    = "60"
+      AUTH_MODE            = "authorizer"
     }
   }
 
