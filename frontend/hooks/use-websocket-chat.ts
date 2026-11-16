@@ -166,8 +166,8 @@ export function useWebSocketChat() {
       id: `welcome-${Date.now()}`,
       role: 'model',
       content: user?.name
-        ? `👋 Xin chào **${user.name}**! Tôi là **Kỹ Sư AI** của Phụ Tùng Xe Máy.\n\nTôi có thể giúp bạn:\n- 🔍 **Bắt bệnh tiếng kêu lạ & chẩn đoán sự cố xe**\n- 🛢️ **Tư vấn dầu nhớt & phụ tùng tương thích chính xác theo đời xe**\n- 📦 **Kiểm tra tiến độ đơn hàng và hướng dẫn lắp ráp**\n\nBạn đang cần tư vấn cho dòng xe nào hoặc phụ tùng nào?`
-        : '👋 Xin chào bạn! Tôi là **Kỹ Sư AI** của Phụ Tùng Xe Máy.\n\nTôi có thể giúp bạn:\n- 🔍 **Bắt bệnh tiếng kêu lạ & chẩn đoán sự cố xe**\n- 🛢️ **Tư vấn dầu nhớt & phụ tùng tương thích chính xác theo đời xe**\n- 📦 **Kiểm tra tiến độ đơn hàng và hướng dẫn lắp ráp**\n\nBạn đang cần tư vấn cho dòng xe nào hoặc phụ tùng nào?',
+        ? `Xin chào **${user.name}**, tôi là trợ lý tư vấn phụ tùng xe máy.\n\nTôi có thể giúp bạn:\n- Tư vấn và đề xuất sản phẩm trong cửa hàng\n- Truy xuất các chính sách (bảo hành, đổi trả…)\n- Kiểm tra trạng thái đơn hàng của bạn\n- Gửi yêu cầu Liên hệ nhân viên\n\nBạn cần tư vấn sản phẩm nào?`
+        : `Xin chào, tôi là trợ lý tư vấn phụ tùng xe máy.\n\nTôi có thể giúp bạn:\n- Tư vấn và đề xuất sản phẩm trong cửa hàng\n- Truy xuất các chính sách (bảo hành, đổi trả…)\n- Kiểm tra trạng thái đơn hàng của bạn\n- Gửi yêu cầu Liên hệ nhân viên\n\nBạn cần tư vấn sản phẩm nào?`,
       timestamp: Date.now(),
     };
     setMessages([welcomeMsg]);
@@ -548,7 +548,7 @@ export function useWebSocketChat() {
     const resetMsg: ChatMessage = {
       id: `welcome-${Date.now()}`,
       role: 'model',
-      content: '🧹 Lịch sử trò chuyện đã được làm mới. Kỹ Sư AI có thể giúp gì cho xe máy của bạn hôm nay?',
+      content: '🧹 Lịch sử trò chuyện đã được làm mới. Bạn cần tư vấn sản phẩm nào?',
       timestamp: Date.now(),
     };
     setMessages([resetMsg]);
