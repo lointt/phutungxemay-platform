@@ -117,20 +117,28 @@ _embed_client = {"key": None, "client": None}
 
 
 def get_api_key(force=False):
-    """Khóa Gemini. Cache trong instance để không gọi SSM/Secrets Manager ở mỗi câu hỏi."""
+    """Khóa Gemini. Cache trong instance để không gọi Secrets Manager ở mỗi câu hỏi."""
     now = time.time()
     if not force and _key_cache["value"] and now - _key_cache["t"] < KEY_TTL_S:
         return _key_cache["value"]
     key = None
-    if GEMINI_SSM_PARAM:
+    secret_name = os.getenv("SECRET_NAME") or "chatbot/gemini_api_key_replica"
+    try:
+        value = secrets.get_secret_value(SecretId=secret_name)
+        raw = value.get("SecretString", "")
         try:
-            key = ssm.get_parameter(Name=GEMINI_SSM_PARAM, WithDecryption=True)["Parameter"]["Value"].strip()
-        except Exception as exc:
-            print("Khong doc duoc SSM, thu Secrets Manager:", str(exc)[:150])
+            data = json.loads(raw)
+            key = data.get("GEMINI_API_KEY") or data.get("gemini_api_key") or raw
+        except Exception:
+            key = raw
+    except Exception as exc:
+        print("[WARN] Khong doc duoc Secrets Manager, thu fallback:", str(exc)[:150])
+
     if not key:
-        value = secrets.get_secret_value(SecretId=SECRET_NAME)
-        key = json.loads(value["SecretString"])["GEMINI_API_KEY"]
-    _key_cache["value"], _key_cache["t"] = key, now
+        key = os.getenv("GEMINI_API_KEY")
+
+    if key:
+        _key_cache["value"], _key_cache["t"] = key.strip(), now
     return key
 
 

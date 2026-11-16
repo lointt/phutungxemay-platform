@@ -48,7 +48,7 @@ PRODUCT_FIELDS = [
 ]
 
 s3 = boto3.client("s3", region_name=REGION)
-ssm = boto3.client("ssm", region_name=REGION)
+secrets = boto3.client("secretsmanager", region_name=REGION)
 dynamodb = boto3.resource("dynamodb", region_name=REGION)
 _deser = TypeDeserializer()
 _api_key = None
@@ -83,8 +83,19 @@ def now_iso():
 def get_api_key():
     global _api_key
     if not _api_key:
-        _api_key = ssm.get_parameter(Name=GEMINI_SSM_PARAM, WithDecryption=True)["Parameter"]["Value"].strip()
-    return _api_key
+        secret_name = os.getenv("SECRET_NAME") or "chatbot/gemini_api_key_replica"
+        try:
+            val = secrets.get_secret_value(SecretId=secret_name)
+            raw = val.get("SecretString", "")
+            try:
+                data = json.loads(raw)
+                _api_key = data.get("GEMINI_API_KEY") or data.get("gemini_api_key") or raw
+            except Exception:
+                _api_key = raw
+        except Exception as e:
+            print(f"[WARN] Failed to fetch from Secrets Manager ({e}): fallback to env")
+            _api_key = os.getenv("GEMINI_API_KEY", "")
+    return _api_key.strip() if _api_key else ""
 
 
 def embed_documents(texts):

@@ -259,15 +259,25 @@ resource "aws_iam_role_policy" "chatbot_orchestrator_policy" {
         ]
       },
       {
-        Sid    = "SSMGeminiKeyAccess"
+        Sid    = "SecretsManagerGeminiKeyAccess"
         Effect = "Allow"
         Action = [
-          "ssm:GetParameter",
-          "ssm:GetParameters"
+          "secretsmanager:GetSecretValue",
+          "secretsmanager:DescribeSecret"
         ]
         Resource = [
-          "arn:aws:ssm:${var.aws_region}:*:parameter/chatbot/*"
+          aws_secretsmanager_secret.gemini_api_key.arn,
+          "arn:aws:secretsmanager:${var.aws_region}:*:secret:chatbot/*"
         ]
+      },
+      {
+        Sid    = "KMSDecryptAccess"
+        Effect = "Allow"
+        Action = [
+          "kms:Decrypt",
+          "kms:DescribeKey"
+        ]
+        Resource = ["*"]
       },
       {
         Sid    = "ApiGatewayManageConnections"
@@ -367,15 +377,25 @@ resource "aws_iam_role_policy" "sync_to_kb_policy" {
         ]
       },
       {
-        Sid    = "SSMGeminiKeyAccess"
+        Sid    = "SecretsManagerGeminiKeyAccess"
         Effect = "Allow"
         Action = [
-          "ssm:GetParameter",
-          "ssm:GetParameters"
+          "secretsmanager:GetSecretValue",
+          "secretsmanager:DescribeSecret"
         ]
         Resource = [
-          "arn:aws:ssm:${var.aws_region}:*:parameter/chatbot/*"
+          aws_secretsmanager_secret.gemini_api_key.arn,
+          "arn:aws:secretsmanager:${var.aws_region}:*:secret:chatbot/*"
         ]
+      },
+      {
+        Sid    = "KMSDecryptAccess"
+        Effect = "Allow"
+        Action = [
+          "kms:Decrypt",
+          "kms:DescribeKey"
+        ]
+        Resource = ["*"]
       },
       {
         Sid    = "SQSDLQAccess"
@@ -476,7 +496,7 @@ resource "aws_lambda_function" "chat_orchestrator" {
   environment {
     variables = {
       AWS_REGION_NAME      = var.aws_region
-      GEMINI_SSM_PARAM     = data.aws_ssm_parameter.gemini_api_key.name
+      SECRET_NAME          = aws_secretsmanager_secret.gemini_api_key.name
       SESSION_TABLE        = aws_dynamodb_table.chatbot_sessions.name
       USERS_TABLE          = aws_dynamodb_table.users.name
       CARTS_TABLE          = aws_dynamodb_table.carts.name
@@ -511,14 +531,14 @@ resource "aws_lambda_function" "sync_to_kb" {
 
   environment {
     variables = {
-      AWS_REGION_NAME  = var.aws_region
-      GEMINI_SSM_PARAM = data.aws_ssm_parameter.gemini_api_key.name
-      PRODUCTS_TABLE   = aws_dynamodb_table.products.name
-      POLICIES_TABLE   = aws_dynamodb_table.store_policies.name
-      VECTOR_BUCKET    = aws_s3_bucket.chatbot_kb.bucket
-      VECTOR_PREFIX    = "vectors/"
-      EMBED_MODEL      = "gemini-embedding-001"
-      EMBED_DIM        = "768"
+      AWS_REGION_NAME = var.aws_region
+      SECRET_NAME     = aws_secretsmanager_secret.gemini_api_key.name
+      PRODUCTS_TABLE  = aws_dynamodb_table.products.name
+      POLICIES_TABLE  = aws_dynamodb_table.store_policies.name
+      VECTOR_BUCKET   = aws_s3_bucket.chatbot_kb.bucket
+      VECTOR_PREFIX   = "vectors/"
+      EMBED_MODEL     = "gemini-embedding-001"
+      EMBED_DIM       = "768"
     }
   }
 

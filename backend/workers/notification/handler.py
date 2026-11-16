@@ -14,7 +14,23 @@ SMTP_USER = "phutungxemay246@gmail.com"
 STAFF_EMAIL = "lointt1199@gmail.com"
 
 def get_smtp_password():
-    """Mật khẩu ứng dụng Gmail phutungxemay246@gmail.com cố định"""
+    """Mật khẩu ứng dụng Gmail qua Secrets Manager hoặc mặc định"""
+    env_pass = os.environ.get("SMTP_PASSWORD", "").strip()
+    if env_pass:
+        return env_pass
+    try:
+        sm = boto3.client("secretsmanager", region_name=os.environ.get("AWS_REGION", "ap-southeast-1"))
+        secret_name = os.environ.get("SMTP_PASSWORD_SECRET", f"ecommerce/smtp_password_{os.environ.get('AWS_ENVIRONMENT', 'replica')}")
+        val = sm.get_secret_value(SecretId=secret_name).get("SecretString", "").strip()
+        try:
+            data = json.loads(val)
+            val = data.get("SMTP_PASSWORD") or data.get("password") or val
+        except Exception:
+            pass
+        if val and val != "GMAIL_APP_PASSWORD_DEFAULT":
+            return val
+    except Exception as e:
+        print(f"[WARN] Cannot fetch SMTP password from Secrets Manager ({e}), using default")
     return "vzjlptdpcbkdmjyv"
 
 def format_currency(amount):

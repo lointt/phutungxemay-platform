@@ -462,15 +462,25 @@ resource "aws_iam_role_policy" "notification_worker_policy" {
         ]
       },
       {
-        Sid    = "ReadSmtpPasswordFromSSM"
+        Sid    = "ReadSecretsFromSecretsManager"
         Effect = "Allow"
         Action = [
-          "ssm:GetParameter",
-          "ssm:GetParameters"
+          "secretsmanager:GetSecretValue",
+          "secretsmanager:DescribeSecret"
         ]
         Resource = [
-          aws_ssm_parameter.smtp_password.arn
+          aws_secretsmanager_secret.smtp_password.arn,
+          "arn:aws:secretsmanager:${var.aws_region}:*:secret:ecommerce/*"
         ]
+      },
+      {
+        Sid    = "KMSDecryptAccess"
+        Effect = "Allow"
+        Action = [
+          "kms:Decrypt",
+          "kms:DescribeKey"
+        ]
+        Resource = ["*"]
       }
     ]
   })
@@ -796,10 +806,10 @@ resource "aws_lambda_function" "notification_worker" {
 
   environment {
     variables = {
-      SMTP_SERVER         = "smtp.gmail.com"
-      SMTP_PORT           = "465"
-      SMTP_PASSWORD_PARAM = aws_ssm_parameter.smtp_password.name
-      STAFF_EMAIL         = "lointt1199@gmail.com"
+      SMTP_SERVER          = "smtp.gmail.com"
+      SMTP_PORT            = "465"
+      SMTP_PASSWORD_SECRET = aws_secretsmanager_secret.smtp_password.name
+      STAFF_EMAIL          = "lointt1199@gmail.com"
     }
   }
 

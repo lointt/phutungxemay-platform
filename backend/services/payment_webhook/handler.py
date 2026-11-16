@@ -34,18 +34,23 @@ def build_response(status_code, body):
     }
 
 def get_vnpay_hash_secret():
-    """Lay VNPAY Hash Secret tu env hoac SSM Parameter Store an toan"""
+    """Lay VNPAY Hash Secret tu env hoac Secrets Manager an toan"""
     secret = os.environ.get('VNPAY_HASH_SECRET', '').strip() or VNPAY_HASH_SECRET
     if secret and secret != 'VNPAY_SECRET_DEFAULT':
         return secret
     try:
-        ssm = boto3.client('ssm', region_name=os.environ.get('AWS_REGION', 'ap-southeast-1'))
-        param = ssm.get_parameter(Name='/ecommerce/vnpay_hash_secret', WithDecryption=True)
-        val = param.get('Parameter', {}).get('Value', '').strip()
+        sm = boto3.client('secretsmanager', region_name=os.environ.get('AWS_REGION', 'ap-southeast-1'))
+        secret_name = os.environ.get('VNPAY_SECRET_NAME', f"ecommerce/vnpay_{os.environ.get('AWS_ENVIRONMENT', 'replica')}")
+        val = sm.get_secret_value(SecretId=secret_name).get('SecretString', '').strip()
+        try:
+            data = json.loads(val)
+            val = data.get('VNPAY_HASH_SECRET') or data.get('hash_secret') or val
+        except Exception:
+            pass
         if val and val != 'VNPAY_SECRET_DEFAULT':
             return val
     except Exception as e:
-        print(f"[WARN] Cannot fetch VNPAY_HASH_SECRET from SSM: {e}")
+        print(f"[WARN] Cannot fetch VNPAY_HASH_SECRET from Secrets Manager: {e}")
     return secret
 
 def verify_vnpay_signature(params, secret_key):
