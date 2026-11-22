@@ -476,37 +476,6 @@ export default function CheckoutPage() {
                     <p className="text-xs text-gray-500">Quét mã VNPAY-QR từ ứng dụng ngân hàng hoặc thẻ ATM nội địa.</p>
                   </div>
                 </label>
-
-                {/* Option 3: MoMo */}
-                <label
-                  className={cn(
-                    'flex items-center gap-4 p-4 rounded-xl border cursor-pointer transition-all',
-                    paymentMethod === 'MOMO'
-                      ? 'border-pink-500 bg-pink-50/60 shadow-sm'
-                      : 'border-gray-200 hover:bg-gray-50',
-                  )}
-                >
-                  <input
-                    type="radio"
-                    name="payment_method"
-                    value="MOMO"
-                    checked={paymentMethod === 'MOMO'}
-                    onChange={() => setPaymentMethod('MOMO')}
-                    className="w-4 h-4 text-pink-500 border-gray-300 focus:ring-pink-400"
-                  />
-                  <div className="w-10 h-10 rounded-xl bg-pink-100 text-pink-600 flex items-center justify-center font-bold text-xs flex-shrink-0">
-                    MoMo
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <p className="font-bold text-sm text-gray-900">Ví điện tử MoMo</p>
-                      <span className="px-2 py-0.5 bg-pink-100 text-pink-700 text-[10px] font-bold rounded">
-                        Ví MoMo
-                      </span>
-                    </div>
-                    <p className="text-xs text-gray-500">Quét mã QR từ ứng dụng MoMo để thanh toán tức thì.</p>
-                  </div>
-                </label>
               </div>
             </div>
           </div>
